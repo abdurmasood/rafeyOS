@@ -182,6 +182,37 @@
 /* The /projects page's 3D scene (Tailwind-styled; base.css keeps its resets off it) */
 :where(.rafeyos) .p3d { flex: 1; min-height: 0; position: relative; background: #000; }
 
+/* blocks */
+/* A game window: the world fills it and the HUD floats over it in the dock's glass. HUD text stays white in both
+   themes because it sits on the world or on dark glass, never on the window background. */
+:where(.rafeyos) .blocks { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #cfe2f0; container-type: inline-size; }
+:where(.rafeyos) .bk-view { position: absolute; inset: 0; }
+:where(.rafeyos) .bk-canvas { display: block; width: 100%; height: 100%; }
+:where(.rafeyos) .bk-cross { position: absolute; left: 50%; top: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); pointer-events: none; mix-blend-mode: difference; }
+:where(.rafeyos) .bk-cross::before, :where(.rafeyos) .bk-cross::after { content: ""; position: absolute; background: #fff; }
+:where(.rafeyos) .bk-cross::before { left: 9px; top: 1px; width: 2px; height: 18px; }
+:where(.rafeyos) .bk-cross::after { top: 9px; left: 1px; width: 18px; height: 2px; }
+:where(.rafeyos) .bk-pos, :where(.rafeyos) .bk-unsaved { position: absolute; left: 12px; padding: 4px 9px; border-radius: 7px; color: #fff; background: var(--glass); box-shadow: inset 0 0 0 1px var(--glass-edge); pointer-events: none; }
+:where(.rafeyos) .bk-pos { top: 12px; font: 400 12.5px var(--mono); font-variant-numeric: tabular-nums; }
+:where(.rafeyos) .bk-unsaved { top: 44px; font-size: 12.5px; }
+:where(.rafeyos) .bk-bar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 3px; padding: 4px; border-radius: 12px; background: var(--glass); box-shadow: inset 0 0 0 1px var(--glass-edge); -webkit-backdrop-filter: blur(28px) saturate(1.7); backdrop-filter: blur(28px) saturate(1.7); }
+:where(.rafeyos) .bk-slot { position: relative; width: clamp(30px, calc((100cqi - 72px) / 9), 46px); aspect-ratio: 1; border-radius: 8px; display: grid; place-items: center; }
+:where(.rafeyos) .bk-slot canvas { width: 74%; height: auto; image-rendering: pixelated; }
+:where(.rafeyos) .bk-slot b { position: absolute; top: 2px; left: 5px; font: 400 11px var(--mono); color: rgba(255,255,255,.5); }
+:where(.rafeyos) .bk-slot[aria-current="true"] { background: var(--glass-fill); box-shadow: inset 0 0 0 2px rgba(255,255,255,.92); }
+:where(.rafeyos) .bk-name { position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); font-weight: 500; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.55); opacity: 0; transition: opacity .25s; pointer-events: none; }
+:where(.rafeyos) .bk-name.on { opacity: 1; }
+:where(.rafeyos) .bk-cover { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(14,14,18,.38); cursor: pointer; }
+:where(.rafeyos) .bk-card { display: grid; gap: 14px; padding: 20px 24px; border-radius: 14px; max-width: calc(100% - 48px); color: #fff; background: var(--glass); box-shadow: inset 0 0 0 1px var(--glass-edge), 0 16px 40px rgba(0,0,0,.4); -webkit-backdrop-filter: blur(28px) saturate(1.7); backdrop-filter: blur(28px) saturate(1.7); }
+:where(.rafeyos) .bk-card h2 { margin: 0; font-size: 18px; font-weight: 500; }
+:where(.rafeyos) .bk-card p { margin: 0; color: rgba(255,255,255,.72); max-width: 34ch; }
+:where(.rafeyos) .blocks .bk-play { all: unset; cursor: pointer; }
+:where(.rafeyos) .blocks .bk-play:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+:where(.rafeyos) .bk-keys { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; align-items: center; }
+:where(.rafeyos) .bk-keys div { display: contents; }
+:where(.rafeyos) .bk-keys dt { justify-self: start; padding: 1px 7px; border-radius: 5px; background: var(--glass-fill); font: 400 12.5px var(--mono); }
+:where(.rafeyos) .bk-keys dd { margin: 0; color: rgba(255,255,255,.72); }
+
 /* settings */
 :where(.rafeyos) .styles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 :where(.rafeyos) .stc { all: unset; display: grid; gap: 8px; justify-items: center; }
