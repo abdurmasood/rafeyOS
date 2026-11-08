@@ -86,7 +86,7 @@ describe('content commands', () => {
     expect(out.lines[0].text).toBe(
       "Available commands:\n\n  bio         biography\n  skills      toolkit\n" +
         "  projects    body of work\n  blog        thoughts\n" +
-        '  contact     get in touch\n',
+        '  studio      the room, live\n  contact     get in touch\n',
     )
     expect(out.lines[1]).toEqual({ type: 'dim', text: "Use ↑ for history, tab to autocomplete, 'clear' to reset." })
   })
@@ -114,6 +114,21 @@ describe('content commands', () => {
   it('projects refuses anything but --3d, as on the homepage', () => {
     expect(run('projects grid')).toMatchObject({
       lines: [error("projects: unknown option 'grid'. Usage: projects [--3d]")],
+      effects: [],
+      code: 1,
+    })
+  })
+
+  it('studio opens the live room in a new tab, so the desktop keeps its windows', () => {
+    const out = run('studio')
+
+    expect(texts(out)).toEqual(['Opening the studio…'])
+    expect(out.effects).toEqual([{ type: 'openExternal', href: '/studio' }])
+  })
+
+  it('studio refuses arguments', () => {
+    expect(run('studio now')).toMatchObject({
+      lines: [error("studio: unknown option 'now'. Usage: studio")],
       effects: [],
       code: 1,
     })

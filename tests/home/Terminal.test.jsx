@@ -11,6 +11,7 @@ const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
 vi.mock('@/lib/loadRafeyOS', () => ({ loadRafeyOS: vi.fn(() => Promise.resolve({})) }))
 vi.mock('@/lib/loadProjects', () => ({ loadProjects: vi.fn() }))
+vi.mock('@/lib/loadStudio', () => ({ loadStudio: vi.fn() }))
 // The player's waveform never decodes here, so it stays on "loading…"
 vi.mock('@/lib/audioSamples', () => ({ loadSamples: () => new Promise(() => {}) }))
 
@@ -244,6 +245,32 @@ describe('home terminal: panels', () => {
     expect(push).not.toHaveBeenCalled()
     act(() => vi.advanceTimersByTime(1))
     expect(push).toHaveBeenCalledWith('/projects')
+    vi.useRealTimers()
+  })
+
+  it('studio takes the LoadingBar path to the live room', () => {
+    vi.useFakeTimers()
+    const { container } = render(<Page />)
+
+    run('studio')
+
+    expect(container.querySelector('.terminal-output')).toBeNull()
+    act(() => vi.advanceTimersByTime(5499))
+    expect(push).not.toHaveBeenCalled()
+    act(() => vi.advanceTimersByTime(1))
+    expect(push).toHaveBeenCalledWith('/studio')
+    vi.useRealTimers()
+  })
+
+  it('studio does not route if the terminal unmounts during the LoadingBar', () => {
+    vi.useFakeTimers()
+    const { unmount } = render(<Page />)
+    run('studio')
+
+    unmount()
+    act(() => vi.advanceTimersByTime(6000))
+
+    expect(push).not.toHaveBeenCalled()
     vi.useRealTimers()
   })
 

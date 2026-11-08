@@ -80,6 +80,18 @@ describe('content commands', () => {
     expect(run('projects --3d')).toMatchObject({ lines: [], effects: [{ type: HOME_EFFECTS.PROJECTS_3D }], code: 0 })
   })
 
+  it('studio takes the LoadingBar path to /studio in this tab and prints nothing', () => {
+    expect(run('studio')).toMatchObject({ lines: [], effects: [{ type: HOME_EFFECTS.STUDIO }], code: 0 })
+  })
+
+  it('studio with an argument keeps the engine\'s error and goes nowhere', () => {
+    expect(run('studio now')).toMatchObject({
+      lines: [error("studio: unknown option 'now'. Usage: studio")],
+      effects: [],
+      code: 1,
+    })
+  })
+
   it('projects with anything else keeps today\'s error', () => {
     expect(run('projects grid')).toMatchObject({
       lines: [error("projects: unknown option 'grid'. Usage: projects [--3d]")],

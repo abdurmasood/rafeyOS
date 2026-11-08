@@ -17,7 +17,7 @@ describe('buildVfs', () => {
       '/home/visitor',
       '/usr', '/usr/local', '/usr/local/bin',
       '/usr/local/bin/bio', '/usr/local/bin/projects', '/usr/local/bin/blog', '/usr/local/bin/music',
-      '/usr/local/bin/contact', '/usr/local/bin/skills', '/usr/local/bin/help', '/usr/local/bin/os',
+      '/usr/local/bin/contact', '/usr/local/bin/skills', '/usr/local/bin/help', '/usr/local/bin/os', '/usr/local/bin/studio',
       '/usr/bin', ...SYSTEM_COMMANDS.map((name) => `/usr/bin/${name}`), '/bin',
       '/etc', '/etc/hostname', '/etc/os-release', '/etc/passwd',
       '/tmp', 'trash',
@@ -41,7 +41,7 @@ describe('buildVfs', () => {
     expect(vfs['/etc/os-release'].text).toContain('PRETTY_NAME="rafeyOS 24.04 LTS"')
     expect(vfs['/etc/passwd'].text.split('\n').map((line) => line.split(':')[0])).toEqual(['root', 'rafey', 'visitor', ''])
     expect(commands.map((path) => path.slice('/usr/local/bin/'.length))).toEqual([
-      'bio', 'projects', 'blog', 'music', 'contact', 'skills', 'help', 'os',
+      'bio', 'projects', 'blog', 'music', 'contact', 'skills', 'help', 'os', 'studio',
     ])
     commands.forEach((path) => expect(vfs[path]).toMatchObject({ type: 'text', text: expect.stringMatching(/^#!\/bin\/sh\n/) }))
     expect(vfs['/tmp']).toMatchObject({ type: 'dir', name: 'tmp' })
@@ -53,6 +53,7 @@ describe('buildVfs', () => {
     expect(Object.keys(vfs).filter((path) => path.startsWith('/usr/local/bin/')).sort()).toEqual([
       '/usr/local/bin/bio', '/usr/local/bin/blog', '/usr/local/bin/contact', '/usr/local/bin/help',
       '/usr/local/bin/music', '/usr/local/bin/os', '/usr/local/bin/projects', '/usr/local/bin/skills',
+      '/usr/local/bin/studio',
     ])
   })
 
