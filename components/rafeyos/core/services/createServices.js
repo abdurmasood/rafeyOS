@@ -2,6 +2,7 @@
 import { sessionStorageOrNull } from '@/lib/browserStorage'
 import { sharedFsStore } from '@/components/rafeyos/core/vfs/fsStore'
 import { sharedSettingsStore } from '@/components/rafeyos/core/settings/settingsStore'
+import { browserMinecraftStore } from '@/components/rafeyos/core/minecraft/minecraftStore'
 import { browserClipboard } from './clipboard'
 import { createAudio } from './audio'
 import { createMediaSession } from './mediaSession'
@@ -28,7 +29,7 @@ const watchQuery = (win, query, listener) => {
 
 /**
  * @param {{ router: { push: (href: string) => void }, win?: Window }} deps
- * @returns {{ navigate, storage, fs, settings, now, openExternal, clipboard, createAudio, loadAudioSamples, mediaSession, reducedMotion, prefersDark, watchColorScheme }}
+ * @returns {{ navigate, storage, fs, settings, minecraft, now, openExternal, clipboard, createAudio, loadAudioSamples, mediaSession, reducedMotion, prefersDark, watchColorScheme }}
  */
 export const createServices = ({ router, win = globalThis.window }) =>
   Object.freeze({
@@ -38,6 +39,8 @@ export const createServices = ({ router, win = globalThis.window }) =>
     fs: sharedFsStore(win),
     // The visitor's saved appearance, shared the same way
     settings: sharedSettingsStore(win),
+    // Builds in the Minecraft app
+    minecraft: browserMinecraftStore(win),
     now: () => new Date(),
     openExternal: (href) => win?.open(href, '_blank', 'noopener,noreferrer'),
     clipboard: browserClipboard(win),

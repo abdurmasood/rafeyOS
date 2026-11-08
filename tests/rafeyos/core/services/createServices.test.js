@@ -3,6 +3,7 @@ import { createServices } from '@/components/rafeyos/core/services/createService
 import { localStorageOrNull, sessionStorageOrNull } from '@/lib/browserStorage'
 import { FS_KEY, LEGACY_KEY } from '@/components/rafeyos/core/vfs/fsStore'
 import { SETTINGS_KEY } from '@/components/rafeyos/core/settings/settingsStore'
+import { MINECRAFT_KEY } from '@/components/rafeyos/core/minecraft/minecraftStore'
 import { memoryStorage } from '@/tests/rafeyos/helpers/renderRafeyOS'
 
 const fakeWindow = (overrides = {}) => ({
@@ -83,6 +84,16 @@ describe('services', () => {
 
     expect(JSON.parse(win.localStorage.getItem(SETTINGS_KEY))).toEqual({ v: 1, values: { accent: '#0073E5' } })
     expect(createServices({ router: { push: vi.fn() }, win }).settings).toBe(services.settings)
+  })
+
+  it('saves Minecraft builds in localStorage', () => {
+    const win = fakeWindow({ localStorage: memoryStorage() })
+    const services = createServices({ router: { push: vi.fn() }, win })
+
+    expect(services.minecraft.save('island-1', [[3, 8]]).ok).toBe(true)
+
+    expect(JSON.parse(win.localStorage.getItem(MINECRAFT_KEY))).toEqual({ v: 1, world: 'island-1', edits: [[3, 8]] })
+    expect(services.minecraft.load('island-1')).toEqual([[3, 8]])
   })
 
   it('watches the colour scheme for changes until unsubscribed', () => {

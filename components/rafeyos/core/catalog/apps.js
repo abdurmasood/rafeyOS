@@ -18,6 +18,7 @@ export const APP = Object.freeze({
   PROJECTS: 'projects',
   SETTINGS: 'settings',
   PROPERTIES: 'properties',
+  MINECRAFT: 'minecraft',
 })
 
 /** @typedef {typeof APP[keyof typeof APP]} AppId */
@@ -75,11 +76,12 @@ export const APPS = Object.freeze({
   [APP.PROJECTS]: app({ id: APP.PROJECTS, name: 'Projects', size: [1140, 720], minSize: [560, 380] }),
   [APP.SETTINGS]: app({ id: APP.SETTINGS, name: 'Settings', size: [780, 540], minSize: [600, 420] }),
   [APP.PROPERTIES]: app({ id: APP.PROPERTIES, name: 'Properties', size: [340, 430], minSize: [340, 380], inDock: false }),
+  [APP.MINECRAFT]: app({ id: APP.MINECRAFT, name: 'Minecraft', size: [960, 640], minSize: [640, 480] }),
 })
 
 export const APP_IDS = Object.freeze(Object.keys(APPS))
 
-export const DOCK_FAVORITES = Object.freeze([APP.FILES, APP.TERMINAL, APP.EDITOR, APP.MUSIC, APP.MAIL, APP.PROJECTS, APP.SETTINGS])
+export const DOCK_FAVORITES = Object.freeze([APP.FILES, APP.TERMINAL, APP.EDITOR, APP.MUSIC, APP.MAIL, APP.PROJECTS, APP.MINECRAFT, APP.SETTINGS])
 
 /** @param {AppId} id */
 export const getApp = (id) => {
@@ -90,7 +92,7 @@ export const getApp = (id) => {
 
 /** @type {readonly AppId[]} */
 export const IMPLEMENTED_APPS = Object.freeze([
-  APP.FILES, APP.TERMINAL, APP.EDITOR, APP.MUSIC, APP.MAIL, APP.PROJECTS, APP.SETTINGS, APP.PROPERTIES,
+  APP.FILES, APP.TERMINAL, APP.EDITOR, APP.MUSIC, APP.MAIL, APP.PROJECTS, APP.SETTINGS, APP.PROPERTIES, APP.MINECRAFT,
 ])
 
 /** @param {AppId} appId */

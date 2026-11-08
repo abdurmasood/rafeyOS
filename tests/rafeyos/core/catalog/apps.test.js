@@ -3,7 +3,7 @@ import { APPS, APP_IDS, DOCK_FAVORITES, getApp } from '@/components/rafeyos/core
 
 describe('app registry', () => {
   it('lists every app id', () => {
-    expect(APP_IDS).toEqual(['files', 'terminal', 'editor', 'music', 'mail', 'projects', 'settings', 'properties'])
+    expect(APP_IDS).toEqual(['files', 'terminal', 'editor', 'music', 'mail', 'projects', 'settings', 'properties', 'minecraft'])
   })
 
   it('carries the mockup sizes and flags', () => {
@@ -22,7 +22,7 @@ describe('app registry', () => {
   })
 
   it('pins the dock favorites, all of which are dock apps', () => {
-    expect(DOCK_FAVORITES).toEqual(['files', 'terminal', 'editor', 'music', 'mail', 'projects', 'settings'])
+    expect(DOCK_FAVORITES).toEqual(['files', 'terminal', 'editor', 'music', 'mail', 'projects', 'minecraft', 'settings'])
     expect(DOCK_FAVORITES.every((id) => getApp(id).inDock)).toBe(true)
   })
 

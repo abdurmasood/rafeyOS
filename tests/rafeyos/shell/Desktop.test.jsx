@@ -121,7 +121,7 @@ describe('dock', () => {
 
     const names = within(dock()).getAllByRole('button').map((button) => button.getAttribute('aria-label'))
 
-    expect(names).toEqual(['Files', 'Terminal', 'Text Editor', 'Music', 'Mail', 'Projects', 'Settings', 'Trash', 'Show Apps'])
+    expect(names).toEqual(['Files', 'Terminal', 'Text Editor', 'Music', 'Mail', 'Projects', 'Minecraft', 'Settings', 'Trash', 'Show Apps'])
   })
 
   it('launches Files, minimizes it on a second click and restores it on a third', () => {
