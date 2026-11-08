@@ -29,6 +29,26 @@ void main() {
 }
 `
 
+/**
+ * The figure's live parts (head, hair, hands): coloured from their own Cycles layer at the rest pose,
+ * then posed by up to two bones per vertex. Pairs with plantFragment.
+ */
+export const figureVertex = /* glsl */ `
+attribute float _bone_a;
+attribute float _bone_b;
+attribute float _weight_b;
+uniform mat4 uPlateViewProj;
+uniform mat4 uBones[BONE_COUNT];
+varying vec4 vRestClip;
+
+void main() {
+  vec4 world = modelMatrix * vec4(position, 1.0);
+  vRestClip = uPlateViewProj * world;
+  vec4 posed = mix(uBones[int(_bone_a + 0.5)] * world, uBones[int(_bone_b + 0.5)] * world, _weight_b);
+  gl_Position = projectionMatrix * viewMatrix * posed;
+}
+`
+
 /** The tree's twigs and leaves: only ever seen through the window, coloured like the plants. */
 export const treeVertex = /* glsl */ `
 attribute float _sway;

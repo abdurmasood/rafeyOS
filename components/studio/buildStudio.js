@@ -1,9 +1,12 @@
 // Turns the loaded glb and plates into the live studio: materials on every mesh, the things the
 // wind moves, the shadow passes and the dust. Plain three.js, so StudioScene stays small.
 import { BufferAttribute, BufferGeometry, Points } from 'three'
+import { createFigurePoser } from '@/lib/studio/figurePose'
 import { PLANT_MOTION, TREE_MOTION } from '@/lib/studio/motion'
+import { createFigureRig } from './figureRig'
 import {
   createDustMaterial,
+  createFigureMaterial,
   createPlantMaterial,
   createRoomMaterial,
   createSharedUniforms,
@@ -13,7 +16,7 @@ import {
 } from './materials'
 import { createShadowRig } from './shadowRig'
 
-export const ROLES = Object.freeze({ ROOM: 'room', GROUND: 'ground', PLANT: 'plant', TREE: 'tree' })
+export const ROLES = Object.freeze({ ROOM: 'room', GROUND: 'ground', PLANT: 'plant', TREE: 'tree', FIGURE: 'figure' })
 const FLOOR_MONSTERA = 'Monstera (floor)'
 const TREE_HEIGHT = 1.5
 // Where the beam crosses the room (three.js coords): from the window down to the rug
@@ -57,8 +60,29 @@ const setupPlants = ({ manifest, shared, plants, meshes, fallback }) =>
     return { name, mesh, sway, place: motion.place }
   })
 
+/** The phone's position (three.js), from the clock facts: where he glances to check the time. */
+const phoneAt = (clock) => (clock?.matrix ? [clock.matrix[12], clock.matrix[13], clock.matrix[14]] : undefined)
+
+/** He and the chair top: one rig and poser; each mesh is coloured from the layer holding its parts. */
+const setupFigure = ({ manifest, shared, plants, meshes, fallback }) => {
+  if (!meshes.length) return null
+  if (!manifest.figure || !plants) {
+    for (const mesh of meshes) mesh.material = fallback // a manifest from before he moved: show the plate
+    return null
+  }
+  const { bones, rests } = manifest.figure
+  const rig = createFigureRig(bones)
+  for (const mesh of meshes) {
+    const layer = layerFor(manifest, mesh.userData.studio_name)
+    mesh.material = layer
+      ? createFigureMaterial(shared, { plants, layerRect: layer.rect, atlasRect: layer.atlasRect, bones: rig.matrices })
+      : fallback
+  }
+  return { meshes, rig, poser: createFigurePoser({ bones, rests, phone: phoneAt(manifest.clock) }) }
+}
+
 /**
- * @returns {{ shared, room, swaying: Array<{ sway, place }>, shadows, dust, dispose }}
+ * @returns {{ shared, room, swaying: Array<{ sway, place }>, figure, shadows, dust, dispose }}
  */
 export const buildStudio = ({ manifest, plateViewProj, scene, base, deltas, plants, hazeSteps, pixelRatio }) => {
   const byRole = meshesByRole(scene)
@@ -82,6 +106,7 @@ export const buildStudio = ({ manifest, plateViewProj, scene, base, deltas, plan
   } else if (treeMesh) {
     treeMesh.material = room // a manifest without the tree's layer: show the plate, as the plants do
   }
+  const figure = setupFigure({ manifest, shared, plants, meshes: byRole.figure, fallback: room })
   const monstera = manifest.deltas?.up ? plantParts.find((part) => part.name === FLOOR_MONSTERA) : null
   const shadows = createShadowRig({ manifest, shared, tree, monstera })
 
@@ -94,6 +119,7 @@ export const buildStudio = ({ manifest, plateViewProj, scene, base, deltas, plan
     shared,
     room,
     swaying,
+    figure,
     shadows,
     dust,
     dispose() {
@@ -103,6 +129,7 @@ export const buildStudio = ({ manifest, plateViewProj, scene, base, deltas, plan
       room.dispose()
       for (const { mesh } of plantParts) if (mesh.material !== room) mesh.material.dispose()
       if (treeMesh && treeMesh.material !== room) treeMesh.material.dispose()
+      for (const mesh of figure?.meshes ?? []) if (mesh.material !== room) mesh.material.dispose()
     },
   }
 }

@@ -93,6 +93,20 @@ describe('studio manifest', () => {
     )
   })
 
+  it('rejects figure bones listed before their parent', () => {
+    const bones = [
+      { name: 'root', parent: -1, pivot: [0, 0, 0] },
+      { name: 'finger', parent: 2, pivot: [0, 0, 0] },
+      { name: 'hand', parent: 0, pivot: [0, 0, 0] },
+    ]
+    expect(() => validateManifest({ ...manifest, figure: { bones } })).toThrow(StudioManifestError)
+  })
+
+  it('rejects armrest rests that are missing a side', () => {
+    const figure = { bones: [{ name: 'root', parent: -1, pivot: [0, 0, 0] }], rests: { L: [0, 0, 0] } }
+    expect(() => validateManifest({ ...manifest, figure })).toThrow(new StudioManifestError('studio manifest figure rests need a wrist point for each side'))
+  })
+
   it('rejects a packed layer that points outside its atlas', () => {
     const broken = { ...manifest, deltas: { moon: { rect: [0, 0, 1, 1], pos: { atlasRect: [0, 0, 1.2, 1] }, neg: { atlasRect: [0, 0, 1, 1] } } } }
     expect(() => validateManifest(broken)).toThrow(StudioManifestError)

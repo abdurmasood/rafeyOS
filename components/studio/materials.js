@@ -16,6 +16,7 @@ import { roomFragment, roomVertex } from './shaders/room.glsl'
 import {
   dustFragment,
   dustVertex,
+  figureVertex,
   moonSilhouetteFragment,
   plantFragment,
   plantVertex,
@@ -132,6 +133,21 @@ export const createPlantMaterial = (shared, sway, { plants, layerRect, atlasRect
       uLayerAtlas: { value: rect(atlasRect) },
     },
     vertexShader: plantVertex,
+    fragmentShader: plantFragment,
+  })
+
+/** His head, hair and hands: coloured like the plants, posed by `bones` (the rig's matrices, updated in place). */
+export const createFigureMaterial = (shared, { plants, layerRect, atlasRect, bones }) =>
+  new ShaderMaterial({
+    uniforms: {
+      uPlateViewProj: shared.uniforms.uPlateViewProj,
+      uPlants: { value: plants },
+      uLayerRect: { value: rect(layerRect) },
+      uLayerAtlas: { value: rect(atlasRect) },
+      uBones: { value: bones },
+    },
+    defines: { BONE_COUNT: bones.length },
+    vertexShader: figureVertex,
     fragmentShader: plantFragment,
   })
 
