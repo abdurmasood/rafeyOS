@@ -25,14 +25,19 @@ from mathutils import Vector  # noqa: E402
 import studio_common as sc  # noqa: E402
 
 MATTE_SPP = 32
-# Colour layers: plant groups a and b, then c for the swaying tree. The tree gets its own pair
-# because on screen it shares the window with the shelf plants, and one layer can't hold overlaps.
-GROUP_KEYS = "abc"
+# Colour layers: plant groups a and b, c for the swaying tree, d for the figure and the chair top,
+# e for the chair's see-through backrest. Each gets its own pair because on screen it overlaps things
+# in the other groups, and one layer can't hold overlaps. The backrest's colour is taken as seen, him
+# showing through it (postprocess.COMPOSITE_LAYERS), so plants_e shows group d too.
+GROUP_KEYS = "abcde"
 TREE_GROUP = 2
+FIGURE_GROUP = 3
+BACKREST_GROUP = 4
 
 BASE: dict[str, Any] = {
     "camera": "overscan",
     "camera_hidden": sc.PLANTS,
+    "hide_live_figure": True,  # his head and hands are drawn live; they still cast their shadows
     "render_hidden": (sc.TREE_SWAY, sc.PHONE_CLOCK),
 }
 
@@ -55,6 +60,10 @@ VARIANTS: dict[str, dict[str, Any]] = {
     "matte_b": {**BASE, "plant_group": 1, "matte": True},
     "plants_c": {**BASE, "plant_group": TREE_GROUP},
     "matte_c": {**BASE, "plant_group": TREE_GROUP, "matte": True},
+    "plants_d": {**BASE, "plant_group": FIGURE_GROUP},
+    "matte_d": {**BASE, "plant_group": FIGURE_GROUP, "matte": True},
+    "plants_e": {**BASE, "plant_group": BACKREST_GROUP, "also_visible": FIGURE_GROUP},
+    "matte_e": {**BASE, "plant_group": BACKREST_GROUP, "matte": True},
 }
 
 
@@ -98,7 +107,7 @@ def plant_groups(scene: bpy.types.Scene) -> list[list[str]]:
 
 def layer_groups(scene: bpy.types.Scene) -> list[list[str]]:
     """Everything coloured from its own Cycles layer, in GROUP_KEYS order."""
-    return [*plant_groups(scene), [sc.TREE_SWAY]]
+    return [*plant_groups(scene), [sc.TREE_SWAY], sc.live_figure_parts("figure"), sc.live_figure_parts("backrest")]
 
 
 def uplight_free_collection() -> bpy.types.Collection:
@@ -115,13 +124,20 @@ def uplight_free_collection() -> bpy.types.Collection:
 def variant_changes(scene: bpy.types.Scene, spec: dict[str, Any]) -> list[tuple[Any, str, Any]]:
     changes: list[tuple[Any, str, Any]] = []
     camera_hidden = set(spec.get("camera_hidden", ()))
+    if spec.get("hide_live_figure"):
+        camera_hidden |= set(sc.live_figure_parts())
+        for ob in bpy.context.scene.objects:
+            if ob.get(sc.FIGURE_NO_SHADOW):
+                changes.append((ob, "visible_shadow", False))
     group = spec.get("plant_group")
     layer = set(layer_groups(scene)[group]) if group is not None else set()
-    camera_hidden -= layer
+    also = spec.get("also_visible")
+    visible = layer | (set(layer_groups(scene)[also]) if also is not None else set())
+    camera_hidden -= visible
     for name in camera_hidden:
         changes.append((sc.obj(name), "visible_camera", False))
     for name in spec.get("render_hidden", ()):
-        if name in layer:
+        if name in visible:
             continue  # the swaying tree is left out of every render except its own layer
         found = bpy.data.objects.get(name)
         if found is None:

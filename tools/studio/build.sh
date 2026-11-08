@@ -7,7 +7,7 @@
 # Save in Blender first: this reads the file from disk. Nothing here ever saves it.
 set -euo pipefail
 
-ALL_VARIANTS="base moon_off beam_off candle_off up_free up_off plants_a plants_b plants_c matte_a matte_b matte_c"
+ALL_VARIANTS="base moon_off beam_off candle_off up_free up_off plants_a plants_b plants_c plants_d plants_e matte_a matte_b matte_c matte_d matte_e"
 case "${1:-}" in
   draft) SPP=48 VARIANTS="$ALL_VARIANTS" ;;
   final) SPP=384 VARIANTS="ref $ALL_VARIANTS" ;;  # ref is only for comparing the page against Cycles

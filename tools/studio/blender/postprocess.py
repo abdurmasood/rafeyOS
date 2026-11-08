@@ -45,6 +45,9 @@ PLANT_DILATE = 12
 ALPHA_FLOOR = 0.1
 ATLAS_GAP = 4
 MAX_TEXTURE = 7200  # lib/studio/webgl.js MIN_TEXTURE_SIZE: every texture must fit it
+# Layers taken as seen rather than un-premultiplied: the chair's see-through backrest keeps what shows
+# through it (him, the room), so drawn opaque on the page it matches the render at rest
+COMPOSITE_LAYERS = {"e"}
 BASE_PLATE_WIDTH = 4800  # pixel sizes above are tuned for this width and scale with the plate
 SCALE = 1.0  # set from the base plate in main()
 
@@ -221,8 +224,12 @@ def build_plants(renders: dict[str, np.ndarray], groups: dict[str, list[str]], p
         x0, y0, x1, y1 = box
         a = alpha[y0:y1, x0:x1, None]
         c, b = layer[y0:y1, x0:x1, :3], base[y0:y1, x0:x1]
-        solid = a[..., 0] > ALPHA_FLOOR
-        color = np.where(solid[..., None], (c - (1 - a) * b) / np.maximum(a, ALPHA_FLOOR), 0.0)
+        if key in COMPOSITE_LAYERS:
+            solid = a[..., 0] > 0.01
+            color = np.where(solid[..., None], c, 0.0)
+        else:
+            solid = a[..., 0] > ALPHA_FLOOR
+            color = np.where(solid[..., None], (c - (1 - a) * b) / np.maximum(a, ALPHA_FLOOR), 0.0)
         color = push_pull_dilate(np.clip(color, 0, 1), solid, px(PLANT_DILATE))
         crops[key] = color
         meta[key] = {"plants": plants, "rect": uv_rect(x0, y0, x1, y1, *plate_wh)}
@@ -249,7 +256,7 @@ def main() -> None:
     p.add_argument("--manifest", default=MANIFEST_PATH)
     args = p.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
 
-    layers = {f"{kind}_{key}" for kind in ("plants", "matte") for key in "abc"}
+    layers = {f"{kind}_{key}" for kind in ("plants", "matte") for key in "abcde"}
     names = {"base", "moon_off", "beam_off", "candle_off", "up_free", "up_off", *layers}
     renders = {}
     for name in names | {args.base_name}:
