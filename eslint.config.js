@@ -39,7 +39,7 @@ const shellSiblingRule = (folder, siblings) => layerRule('shell', RAFEYOS_LAYERS
 })
 
 export default [
-  { ignores: ['dist', '.next', 'coverage'] },
+  { ignores: ['dist', '.next', 'coverage', 'public/draco'] }, // public/draco: vendored three.js Draco decoder
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
