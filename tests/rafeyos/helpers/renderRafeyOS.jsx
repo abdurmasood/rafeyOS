@@ -7,7 +7,7 @@ import { SESSION_KEY } from '@/components/rafeyos/session/logic/sessionStore'
 import { fakeAudioFactory } from '@/tests/rafeyos/helpers/fakeAudio'
 import { FS_KEY, createFsStore } from '@/components/rafeyos/core/vfs/fsStore'
 import { createSettingsStore } from '@/components/rafeyos/core/settings/settingsStore'
-import { createBlocksStore } from '@/components/rafeyos/core/blocks/blocksStore'
+import { createMinecraftStore } from '@/components/rafeyos/core/minecraft/minecraftStore'
 import { mergeState, seedState, serializeState } from '@/components/rafeyos/core/vfs/fsState'
 import { realVfs } from '@/tests/rafeyos/helpers/testVfs'
 
@@ -80,7 +80,7 @@ export const fakeServices = (overrides = {}) => ({
   storage: memoryStorage(),
   fs: fsStoreOn(memoryStorage()),
   settings: createSettingsStore({ storage: memoryStorage() }),
-  blocks: createBlocksStore({ storage: memoryStorage() }),
+  minecraft: createMinecraftStore({ storage: memoryStorage() }),
   now: () => FIXED_NOW,
   openExternal: vi.fn(),
   clipboard: { writeText: vi.fn(() => Promise.resolve()) },

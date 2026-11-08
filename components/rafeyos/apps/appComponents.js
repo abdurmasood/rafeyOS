@@ -8,7 +8,7 @@ import { PropertiesApp } from './properties/PropertiesApp'
 import { MusicApp } from './music/MusicApp'
 import { SettingsApp } from './settings/SettingsApp'
 import { ProjectsApp } from './projects/ProjectsApp'
-import { BlocksApp } from './blocks/BlocksApp'
+import { MinecraftApp } from './minecraft/MinecraftApp'
 
 export const APP_COMPONENTS = Object.freeze({
   [APP.FILES]: FilesApp,
@@ -19,5 +19,5 @@ export const APP_COMPONENTS = Object.freeze({
   [APP.PROJECTS]: ProjectsApp,
   [APP.SETTINGS]: SettingsApp,
   [APP.PROPERTIES]: PropertiesApp,
-  [APP.BLOCKS]: BlocksApp,
+  [APP.MINECRAFT]: MinecraftApp,
 })

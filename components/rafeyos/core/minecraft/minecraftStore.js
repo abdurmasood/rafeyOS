@@ -1,14 +1,16 @@
 // @ts-check
-// Builds in the Blocks app, saved to localStorage. Only the blocks that differ from the generated island are kept,
+// Builds in the Minecraft app, saved to localStorage. Only the voxels that differ from the generated island are kept,
 // tagged with the island they belong to, so a save stays small and a changed island never inherits old edits.
 // A save from a newer build (an unknown version) is left alone: this tab loads nothing from it and never writes.
 import { localStorageOrNull } from '@/lib/browserStorage'
 
-export const BLOCKS_KEY = 'rafeyos-blocks'
+export const MINECRAFT_KEY = 'rafeyos-minecraft'
+/** Pre-rename key; read once so existing builds survive the Blocks → Minecraft rename. */
+const LEGACY_KEY = 'rafeyos-blocks'
 const VERSION = 1
 
 /**
- * @typedef {Pick<Storage, 'getItem' | 'setItem'>} BlocksStorage
+ * @typedef {Pick<Storage, 'getItem' | 'setItem'>} MinecraftStorage
  * @typedef {[number, number]} BlockEdit - [voxel index, block id]
  * @typedef {{ ok: true } | { ok: false, reason: 'full' | 'blocked' }} SaveResult
  * @typedef {{ edits: BlockEdit[], readOnly: boolean }} Disk
@@ -32,12 +34,12 @@ const isQuotaError = (error) => {
 
 /**
  * The stored envelope, parsed; undefined when it is absent, unreadable or not JSON.
- * @param {BlocksStorage | null} storage
+ * @param {MinecraftStorage | null} storage
  * @returns {unknown}
  */
 const readEnvelope = (storage) => {
   try {
-    const raw = storage?.getItem(BLOCKS_KEY)
+    const raw = storage?.getItem(MINECRAFT_KEY) ?? storage?.getItem(LEGACY_KEY)
     return raw == null ? undefined : JSON.parse(raw)
   } catch {
     return undefined
@@ -56,9 +58,9 @@ const cleanEdits = (raw) =>
   Array.isArray(raw) ? raw.filter((edit) => Array.isArray(edit) && edit.length === 2 && isCount(edit[0]) && isCount(edit[1])) : []
 
 /**
- * @param {{ storage: BlocksStorage | null }} deps - null when the browser blocks storage
+ * @param {{ storage: MinecraftStorage | null }} deps - null when the browser blocks storage
  */
-export const createBlocksStore = ({ storage }) => {
+export const createMinecraftStore = ({ storage }) => {
   /**
    * @param {string} world
    * @returns {Disk}
@@ -85,7 +87,7 @@ export const createBlocksStore = ({ storage }) => {
     save: (world, edits) => {
       if (!storage || readDisk(world).readOnly) return BLOCKED
       try {
-        storage.setItem(BLOCKS_KEY, JSON.stringify({ v: VERSION, world, edits }))
+        storage.setItem(MINECRAFT_KEY, JSON.stringify({ v: VERSION, world, edits }))
         return SAVED
       } catch (error) {
         return isQuotaError(error) ? FULL : BLOCKED
@@ -94,12 +96,12 @@ export const createBlocksStore = ({ storage }) => {
   })
 }
 
-/** @typedef {ReturnType<typeof createBlocksStore>} BlocksStore */
+/** @typedef {ReturnType<typeof createMinecraftStore>} MinecraftStore */
 
 /**
  * The store on this window's localStorage; without a window (SSR) it has no storage and saves nothing.
  * @param {unknown} win
- * @returns {BlocksStore}
+ * @returns {MinecraftStore}
  */
-export const browserBlocksStore = (win) =>
-  createBlocksStore({ storage: win && typeof win === 'object' ? localStorageOrNull(/** @type {Window & typeof globalThis} */ (win)) : null })
+export const browserMinecraftStore = (win) =>
+  createMinecraftStore({ storage: win && typeof win === 'object' ? localStorageOrNull(/** @type {Window & typeof globalThis} */ (win)) : null })
