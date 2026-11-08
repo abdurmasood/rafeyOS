@@ -178,6 +178,311 @@
       "height": 0.4409
     }
   ],
+  "figure": {
+    "bones": [
+      {
+        "name": "root",
+        "parent": -1,
+        "pivot": [
+          -0.437424,
+          0.545,
+          -0.976067
+        ]
+      },
+      {
+        "name": "swivel",
+        "parent": 0,
+        "pivot": [
+          -0.431187,
+          0.435,
+          -0.946722
+        ]
+      },
+      {
+        "name": "spine",
+        "parent": 1,
+        "pivot": [
+          -0.437424,
+          0.605,
+          -0.976067
+        ]
+      },
+      {
+        "name": "head",
+        "parent": 2,
+        "pivot": [
+          -0.437424,
+          0.895,
+          -1.086067
+        ]
+      },
+      {
+        "name": "shoulder_L",
+        "parent": 2,
+        "pivot": [
+          -0.557424,
+          0.845,
+          -1.066067
+        ]
+      },
+      {
+        "name": "elbow_L",
+        "parent": 4,
+        "pivot": [
+          -0.555986,
+          0.74985,
+          -1.241977
+        ]
+      },
+      {
+        "name": "hand_L",
+        "parent": 5,
+        "pivot": [
+          -0.479051,
+          0.791142,
+          -1.38784
+        ]
+      },
+      {
+        "name": "index_L_a",
+        "parent": 6,
+        "pivot": [
+          -0.448,
+          0.808,
+          -1.49
+        ]
+      },
+      {
+        "name": "index_L_b",
+        "parent": 7,
+        "pivot": [
+          -0.448,
+          0.812,
+          -1.515
+        ]
+      },
+      {
+        "name": "middle_L_a",
+        "parent": 6,
+        "pivot": [
+          -0.4625,
+          0.808,
+          -1.49
+        ]
+      },
+      {
+        "name": "middle_L_b",
+        "parent": 9,
+        "pivot": [
+          -0.4625,
+          0.812,
+          -1.517
+        ]
+      },
+      {
+        "name": "ring_L_a",
+        "parent": 6,
+        "pivot": [
+          -0.4775,
+          0.808,
+          -1.49
+        ]
+      },
+      {
+        "name": "ring_L_b",
+        "parent": 11,
+        "pivot": [
+          -0.4775,
+          0.812,
+          -1.5155
+        ]
+      },
+      {
+        "name": "little_L_a",
+        "parent": 6,
+        "pivot": [
+          -0.491,
+          0.808,
+          -1.49
+        ]
+      },
+      {
+        "name": "little_L_b",
+        "parent": 13,
+        "pivot": [
+          -0.491,
+          0.812,
+          -1.511
+        ]
+      },
+      {
+        "name": "thumb_L_a",
+        "parent": 6,
+        "pivot": [
+          -0.444,
+          0.801,
+          -1.453
+        ]
+      },
+      {
+        "name": "thumb_L_b",
+        "parent": 15,
+        "pivot": [
+          -0.431,
+          0.797,
+          -1.475
+        ]
+      },
+      {
+        "name": "shoulder_R",
+        "parent": 2,
+        "pivot": [
+          -0.317424,
+          0.845,
+          -1.066067
+        ]
+      },
+      {
+        "name": "elbow_R",
+        "parent": 17,
+        "pivot": [
+          -0.265951,
+          0.743554,
+          -1.230563
+        ]
+      },
+      {
+        "name": "hand_R",
+        "parent": 18,
+        "pivot": [
+          -0.314311,
+          0.790479,
+          -1.386638
+        ]
+      },
+      {
+        "name": "index_R_a",
+        "parent": 19,
+        "pivot": [
+          -0.342,
+          0.808,
+          -1.49
+        ]
+      },
+      {
+        "name": "index_R_b",
+        "parent": 20,
+        "pivot": [
+          -0.342,
+          0.812,
+          -1.515
+        ]
+      },
+      {
+        "name": "middle_R_a",
+        "parent": 19,
+        "pivot": [
+          -0.3275,
+          0.808,
+          -1.49
+        ]
+      },
+      {
+        "name": "middle_R_b",
+        "parent": 22,
+        "pivot": [
+          -0.3275,
+          0.812,
+          -1.517
+        ]
+      },
+      {
+        "name": "ring_R_a",
+        "parent": 19,
+        "pivot": [
+          -0.3125,
+          0.808,
+          -1.49
+        ]
+      },
+      {
+        "name": "ring_R_b",
+        "parent": 24,
+        "pivot": [
+          -0.3125,
+          0.812,
+          -1.5155
+        ]
+      },
+      {
+        "name": "little_R_a",
+        "parent": 19,
+        "pivot": [
+          -0.299,
+          0.808,
+          -1.49
+        ]
+      },
+      {
+        "name": "little_R_b",
+        "parent": 26,
+        "pivot": [
+          -0.299,
+          0.812,
+          -1.511
+        ]
+      },
+      {
+        "name": "thumb_R_a",
+        "parent": 19,
+        "pivot": [
+          -0.346,
+          0.801,
+          -1.453
+        ]
+      },
+      {
+        "name": "thumb_R_b",
+        "parent": 28,
+        "pivot": [
+          -0.359,
+          0.797,
+          -1.475
+        ]
+      }
+    ],
+    "rests": {
+      "L": [
+        -0.634885,
+        0.718,
+        -0.882978
+      ],
+      "R": [
+        -0.219172,
+        0.718,
+        -0.97134
+      ]
+    }
+  },
+  "monitor": {
+    "corners": [
+      [
+        -0.692,
+        1.016,
+        -1.8462
+      ],
+      [
+        -0.008,
+        1.016,
+        -1.8462
+      ],
+      [
+        -0.692,
+        1.392,
+        -1.8462
+      ]
+    ]
+  },
   "version": 1,
   "background": [
     0.0,
@@ -202,7 +507,7 @@
         ]
       },
       "neg": {
-        "scale": 0.28687,
+        "scale": 0.286778,
         "atlasRect": [
           0.505859,
           0.281618,
@@ -219,7 +524,7 @@
         0.781111
       ],
       "pos": {
-        "scale": 0.395834,
+        "scale": 0.395819,
         "atlasRect": [
           0.0,
           0.628309,
@@ -228,7 +533,7 @@
         ]
       },
       "neg": {
-        "scale": 0.344976,
+        "scale": 0.344991,
         "atlasRect": [
           0.253174,
           0.628309,
@@ -245,7 +550,7 @@
         0.768333
       ],
       "pos": {
-        "scale": 0.885405,
+        "scale": 0.885084,
         "atlasRect": [
           0.752686,
           0.366176,
@@ -254,7 +559,7 @@
         ]
       },
       "neg": {
-        "scale": 0.165667,
+        "scale": 0.165576,
         "atlasRect": [
           0.0,
           0.0,
@@ -271,7 +576,7 @@
         0.776111
       ],
       "pos": {
-        "scale": 0.607492,
+        "scale": 0.607416,
         "atlasRect": [
           0.506348,
           0.635294,
@@ -280,7 +585,7 @@
         ]
       },
       "neg": {
-        "scale": 0.242298,
+        "scale": 0.241886,
         "atlasRect": [
           0.0,
           0.262132,
@@ -320,13 +625,13 @@
       "rect": [
         0.372778,
         0.407778,
-        0.5375,
+        0.502222,
         0.605
       ],
       "atlasRect": [
-        0.394287,
+        0.239014,
         0.434713,
-        0.539062,
+        0.352783,
         1.0
       ]
     },
@@ -336,14 +641,81 @@
       ],
       "rect": [
         0.361944,
-        0.522222,
-        0.5375,
+        0.577778,
+        0.502222,
         0.725556
       ],
       "atlasRect": [
-        0.239014,
-        0.417197,
-        0.393311,
+        0.35376,
+        0.576433,
+        0.477051,
+        1.0
+      ]
+    },
+    "d": {
+      "plants": [
+        "Chair Arms",
+        "Chair Back Frame",
+        "Chair Mechanism",
+        "Chair Seat",
+        "Rafey Arm -1",
+        "Rafey Arm 1",
+        "Rafey Collar",
+        "Rafey Collar Stripe",
+        "Rafey Cuff Stripe -1",
+        "Rafey Cuff Stripe 1",
+        "Rafey Foot -1",
+        "Rafey Foot 1",
+        "Rafey Hair",
+        "Rafey Head",
+        "Rafey Headphone Cup -1",
+        "Rafey Headphone Cup 1",
+        "Rafey Headphones",
+        "Rafey Index L",
+        "Rafey Index R",
+        "Rafey Leg -1",
+        "Rafey Leg 1",
+        "Rafey Little L",
+        "Rafey Little R",
+        "Rafey Middle L",
+        "Rafey Middle R",
+        "Rafey Palm -1",
+        "Rafey Palm 1",
+        "Rafey Ring L",
+        "Rafey Ring R",
+        "Rafey Thumb L",
+        "Rafey Thumb R",
+        "Rafey Torso",
+        "Rafey Wrist -1",
+        "Rafey Wrist 1"
+      ],
+      "rect": [
+        0.489167,
+        0.463889,
+        0.548611,
+        0.605
+      ],
+      "atlasRect": [
+        0.478027,
+        0.595541,
+        0.530273,
+        1.0
+      ]
+    },
+    "e": {
+      "plants": [
+        "Chair Back Mesh"
+      ],
+      "rect": [
+        0.489167,
+        0.477222,
+        0.527778,
+        0.605
+      ],
+      "atlasRect": [
+        0.53125,
+        0.633758,
+        0.565186,
         1.0
       ]
     }
