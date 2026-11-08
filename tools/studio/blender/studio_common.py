@@ -59,6 +59,11 @@ SKY_BACKDROP = "Sky Backdrop"
 WINDOW_SASH = "Window Sash"
 FLOOR_MONSTERA = "Monstera (floor)"
 FIGURE_PREFIX = "Rafey "  # every object and material of the seated figure (studio_figure.py)
+FIGURE_LIVE = "studio_live"  # figure parts drawn live on the page (they type and look around)
+FIGURE_NO_SHADOW = "studio_no_shadow"  # parts that travel far: their shadows would stay behind as ghosts
+FIGURE_LAYER = "studio_layer"  # which colour layer a live part takes its colour from: "figure" or "backrest"
+FIGURE_RIG = "studio_figure_rig"  # scene property: the figure's bones and which bones move each live part
+MONITOR_SCREEN = "Monitor Screen"
 
 PLANTS = (
     "Monstera (floor)",
@@ -121,6 +126,13 @@ def to_three_matrix(matrix_world: Matrix) -> list[float]:
     """Column-major 4x4 (three.js Matrix4.fromArray order) in Y-up space."""
     m = BLENDER_TO_THREE @ matrix_world
     return [round(m[row][col], 7) for col in range(4) for row in range(4)]
+
+
+def live_figure_parts(layer: str | None = None) -> list[str]:
+    """Names of the live figure and chair parts, optionally only those coloured from one layer."""
+    return sorted(
+        ob.name for ob in bpy.context.scene.objects if ob.get(FIGURE_LIVE) and (layer is None or ob.get(FIGURE_LAYER) == layer)
+    )
 
 
 def light_forward(light_obj: bpy.types.Object) -> Vector:
