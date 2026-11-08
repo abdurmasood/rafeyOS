@@ -90,6 +90,15 @@ const ProjectsIcon = () => (
   </>
 )
 
+/** One isometric cube, lit from above: light top, mid left face, dark right face. */
+const BlocksIcon = () => (
+  <>
+    <path d="M24 6l16 9-16 9-16-9z" fill="#ececec" />
+    <path d="M8 15l16 9v18L8 33z" fill="#b5b5b5" />
+    <path d="M40 15l-16 9v18l16-9z" fill="#8a8a8a" />
+  </>
+)
+
 const SettingsIcon = () => (
   <>
     <circle cx="24" cy="24" r="14" fill="none" stroke="#9b9b9b" strokeWidth="7" strokeDasharray="5.2 3.6" />
@@ -130,6 +139,7 @@ const APP_ICON_BODIES = Object.freeze({
   [APP.MUSIC]: MusicIcon,
   [APP.MAIL]: MailIcon,
   [APP.PROJECTS]: ProjectsIcon,
+  [APP.BLOCKS]: BlocksIcon,
   [APP.SETTINGS]: SettingsIcon,
   [APP.PROPERTIES]: PropertiesIcon,
   trash: TrashIcon,
@@ -200,6 +210,14 @@ const ProjectsTile = () => (
   </Tile>
 )
 
+const BlocksTile = () => (
+  <Tile from="#2e2e2e" to="#151515" rim>
+    <path d="M24 12l10 5.8-10 5.8-10-5.8z" fill="#f2f2f2" />
+    <path d="M14 17.8l10 5.8v12l-10-5.8z" fill="#bdbdbd" />
+    <path d="M34 17.8l-10 5.8v12l10-5.8z" fill="#8f8f8f" />
+  </Tile>
+)
+
 const SettingsTile = () => (
   <Tile from="#a5a5a5" to="#737373">
     <circle cx="24" cy="24" r="11" fill="none" stroke="#2f2f2f" strokeWidth="5" strokeDasharray="3.9 2.9" />
@@ -241,6 +259,7 @@ const APP_TILE_BODIES = Object.freeze({
   [APP.MUSIC]: MusicTile,
   [APP.MAIL]: MailTile,
   [APP.PROJECTS]: ProjectsTile,
+  [APP.BLOCKS]: BlocksTile,
   [APP.SETTINGS]: SettingsTile,
   [APP.PROPERTIES]: PropertiesTile,
   trash: TrashTile,
