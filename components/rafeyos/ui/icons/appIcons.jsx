@@ -90,14 +90,50 @@ const ProjectsIcon = () => (
   </>
 )
 
-/** One isometric cube, lit from above: light top, mid left face, dark right face. */
-const BlocksIcon = () => (
-  <>
-    <path d="M24 6l16 9-16 9-16-9z" fill="#ececec" />
-    <path d="M8 15l16 9v18L8 33z" fill="#b5b5b5" />
-    <path d="M40 15l-16 9v18l16-9z" fill="#8a8a8a" />
-  </>
-)
+// Minecraft app icon: classic 8×8 creeper face (original pixel SVG, not Mojang art)
+const CREEPER_GREEN = '#5d9c3d'
+const CREEPER_BLACK = '#1a1a1a'
+/** 1 = face pixel. Rows top → bottom. */
+const CREEPER_FACE = Object.freeze([
+  Object.freeze([0, 0, 0, 0, 0, 0, 0, 0]),
+  Object.freeze([0, 0, 0, 0, 0, 0, 0, 0]),
+  Object.freeze([0, 1, 1, 0, 0, 1, 1, 0]),
+  Object.freeze([0, 1, 1, 0, 0, 1, 1, 0]),
+  Object.freeze([0, 0, 0, 1, 1, 0, 0, 0]),
+  Object.freeze([0, 0, 1, 1, 1, 1, 0, 0]),
+  Object.freeze([0, 0, 1, 0, 0, 1, 0, 0]),
+  Object.freeze([0, 0, 0, 0, 0, 0, 0, 0]),
+])
+
+/**
+ * Flat creeper face logo. `ground` draws the green square; skip it when the tile is already green.
+ * @param {{ x?: number, y?: number, size?: number, ground?: boolean }} props
+ */
+const CreeperFace = ({ x = 4, y = 4, size = 40, ground = true }) => {
+  const cell = size / 8
+  return (
+    <>
+      {ground && <rect x={x} y={y} width={size} height={size} fill={CREEPER_GREEN} />}
+      {CREEPER_FACE.flatMap((row, j) =>
+        row.map((bit, i) =>
+          bit ? (
+            <rect
+              key={`${i}-${j}`}
+              x={x + i * cell}
+              y={y + j * cell}
+              width={cell}
+              height={cell}
+              fill={CREEPER_BLACK}
+            />
+          ) : null,
+        ),
+      )}
+    </>
+  )
+}
+
+/** Classic flat creeper face for the dock / menu list. */
+const MinecraftIcon = () => <CreeperFace />
 
 const SettingsIcon = () => (
   <>
@@ -139,7 +175,7 @@ const APP_ICON_BODIES = Object.freeze({
   [APP.MUSIC]: MusicIcon,
   [APP.MAIL]: MailIcon,
   [APP.PROJECTS]: ProjectsIcon,
-  [APP.BLOCKS]: BlocksIcon,
+  [APP.MINECRAFT]: MinecraftIcon,
   [APP.SETTINGS]: SettingsIcon,
   [APP.PROPERTIES]: PropertiesIcon,
   trash: TrashIcon,
@@ -210,11 +246,10 @@ const ProjectsTile = () => (
   </Tile>
 )
 
-const BlocksTile = () => (
-  <Tile from="#2e2e2e" to="#151515" rim>
-    <path d="M24 12l10 5.8-10 5.8-10-5.8z" fill="#f2f2f2" />
-    <path d="M14 17.8l10 5.8v12l-10-5.8z" fill="#bdbdbd" />
-    <path d="M34 17.8l-10 5.8v12l10-5.8z" fill="#8f8f8f" />
+/** Creeper face filling the launcher squircle. */
+const MinecraftTile = () => (
+  <Tile from="#6f9f46" to="#4a7a2e" rim>
+    <CreeperFace x={0} y={0} size={48} ground={false} />
   </Tile>
 )
 
@@ -259,7 +294,7 @@ const APP_TILE_BODIES = Object.freeze({
   [APP.MUSIC]: MusicTile,
   [APP.MAIL]: MailTile,
   [APP.PROJECTS]: ProjectsTile,
-  [APP.BLOCKS]: BlocksTile,
+  [APP.MINECRAFT]: MinecraftTile,
   [APP.SETTINGS]: SettingsTile,
   [APP.PROPERTIES]: PropertiesTile,
   trash: TrashTile,
