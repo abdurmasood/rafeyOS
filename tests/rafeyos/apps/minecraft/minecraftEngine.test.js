@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createBlocksEngine } from '@/components/rafeyos/apps/blocks/logic/blocksEngine'
-import { generateIsland, voxelIndex } from '@/components/rafeyos/apps/blocks/logic/terrain'
-import { BLOCK } from '@/components/rafeyos/apps/blocks/logic/blockTypes'
+import { createMinecraftEngine } from '@/components/rafeyos/apps/minecraft/logic/minecraftEngine'
+import { generateIsland, voxelIndex } from '@/components/rafeyos/apps/minecraft/logic/terrain'
+import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
 
 // jsdom has no WebGL or pointer lock: a fake renderer, a manual frame queue, and a stand-in lock
 const fakeRenderer = () => ({
@@ -25,7 +25,7 @@ const start = (options = {}) => {
   let time = 0
   const hud = vi.fn()
   const onEdit = vi.fn()
-  const engine = createBlocksEngine({
+  const engine = createMinecraftEngine({
     host, onHud: hud, onEdit, createRenderer: () => renderer, now: () => time,
     requestFrame: (run) => { frames.set(nextId, run); return nextId++ },
     cancelFrame: (id) => frames.delete(id),
@@ -74,7 +74,7 @@ const play = (world) => {
 }
 const lookDown = () => document.dispatchEvent(new MouseEvent('mousemove', { movementX: 0, movementY: 400, bubbles: true }))
 
-describe('the Blocks engine', () => {
+describe('the Minecraft engine', () => {
   it('fills its host with a canvas sized to it, and renders every frame', () => {
     const { host, canvas, renderer, tick } = track(start())
 
@@ -166,7 +166,7 @@ describe('the Blocks engine', () => {
 
   it("throws when the browser can't make a renderer, leaving nothing behind", () => {
     const host = document.createElement('div')
-    const failing = () => createBlocksEngine({ host, createRenderer: () => { throw new Error('no WebGL') } })
+    const failing = () => createMinecraftEngine({ host, createRenderer: () => { throw new Error('no WebGL') } })
 
     expect(failing).toThrow('no WebGL')
     expect(host.children).toHaveLength(0)

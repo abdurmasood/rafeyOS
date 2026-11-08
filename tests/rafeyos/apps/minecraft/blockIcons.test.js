@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { atlasCanvas, drawBlockIcon } from '@/components/rafeyos/apps/blocks/logic/blockIcons'
-import { ATLAS, paintAtlas, tileOrigin } from '@/components/rafeyos/apps/blocks/logic/texturePixels'
-import { BLOCK, TILE } from '@/components/rafeyos/apps/blocks/logic/blockTypes'
+import { atlasCanvas, drawBlockIcon } from '@/components/rafeyos/apps/minecraft/logic/blockIcons'
+import { ATLAS, paintAtlas, tileOrigin } from '@/components/rafeyos/apps/minecraft/logic/texturePixels'
+import { BLOCK, TILE } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
 
 const fakeDoc = (ctx) => ({ createElement: () => ({ getContext: () => ctx }) })
 const fakeContext = () => ({

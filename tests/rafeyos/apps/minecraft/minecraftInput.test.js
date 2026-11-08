@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { HOLD_REPEAT, createBlocksInput } from '@/components/rafeyos/apps/blocks/logic/blocksInput'
+import { HOLD_REPEAT, createMinecraftInput } from '@/components/rafeyos/apps/minecraft/logic/minecraftInput'
 
 // jsdom has no pointer lock; this stands in for the browser's
 let lockedElement = null
@@ -15,7 +15,7 @@ const setup = ({ pointerLock = true } = {}) => {
   document.body.append(canvas)
   let time = 1000
   const on = { turn: vi.fn(), breakBlock: vi.fn(), placeBlock: vi.fn(), select: vi.fn(), scroll: vi.fn(), playingChanged: vi.fn() }
-  const input = createBlocksInput({ canvas, doc: document, win: window, now: () => time, on })
+  const input = createMinecraftInput({ canvas, doc: document, win: window, now: () => time, on })
   return { canvas, input, on, advance: (ms) => { time += ms }, clock: () => time }
 }
 
@@ -41,7 +41,7 @@ const playing = (options) => {
   return current
 }
 
-describe('Blocks input', () => {
+describe('Minecraft input', () => {
   it('takes the mouse on capture and starts playing', () => {
     const { input, on, canvas } = playing()
 

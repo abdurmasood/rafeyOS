@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { FACES, WATER_SURFACE, cornerOcclusion, meshChunk } from '@/components/rafeyos/apps/blocks/logic/mesher'
-import { BLOCK } from '@/components/rafeyos/apps/blocks/logic/blockTypes'
-import { worldOf } from './blocksTestWorld'
+import { FACES, WATER_SURFACE, cornerOcclusion, meshChunk } from '@/components/rafeyos/apps/minecraft/logic/mesher'
+import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
+import { worldOf } from './minecraftTestWorld'
 
 const TOP = FACES[3]
 const quads = (arrays) => arrays.indices.length / 6

@@ -4,8 +4,8 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { clickDock, headerTitle, renderDesktop, settle, windowsOf } from '@/tests/rafeyos/helpers/renderRafeyOS'
 
 // The real scene needs WebGL. This stand-in shows the props the window hands it.
-vi.mock('@/lib/loadBlocks', () => ({
-  loadBlocks: async () => ({
+vi.mock('@/lib/loadMinecraft', () => ({
+  loadMinecraft: async () => ({
     default: function FakeScene({ active, paused }) {
       return <div data-testid="blocks-scene" data-active={String(active)} data-paused={String(paused)} />
     },
@@ -16,33 +16,33 @@ afterEach(cleanup)
 
 const sceneIn = (win) => within(win).getByTestId('blocks-scene')
 
-const openBlocks = async () => {
+const openMinecraft = async () => {
   const view = renderDesktop()
-  clickDock('Blocks')
+  clickDock('Minecraft')
   await settle()
-  const [win] = windowsOf(view.container, 'blocks')
+  const [win] = windowsOf(view.container, 'minecraft')
   return { ...view, win, ui: within(win) }
 }
 
-describe('Blocks app', () => {
-  it('opens from the dock with the scene under a single "Blocks" header bar', async () => {
-    const { container, win } = await openBlocks()
+describe('Minecraft app', () => {
+  it('opens from the dock with the scene under a single "Minecraft" header bar', async () => {
+    const { container, win } = await openMinecraft()
 
-    expect(windowsOf(container, 'blocks')).toHaveLength(1)
+    expect(windowsOf(container, 'minecraft')).toHaveLength(1)
     expect(win.querySelectorAll('.hb')).toHaveLength(1)
-    expect(headerTitle(win)).toBe('Blocks')
-    expect(win.getAttribute('aria-label')).toBe('Blocks')
+    expect(headerTitle(win)).toBe('Minecraft')
+    expect(win.getAttribute('aria-label')).toBe('Minecraft')
     expect(sceneIn(win).dataset).toMatchObject({ active: 'true', paused: 'false' })
   })
 
   it('has a close button, since the scene draws no chrome of its own', async () => {
-    const { ui } = await openBlocks()
+    const { ui } = await openMinecraft()
 
     expect(ui.getByRole('button', { name: 'Close' })).toBeTruthy()
   })
 
   it('only takes the keyboard while its window is focused', async () => {
-    const { win } = await openBlocks()
+    const { win } = await openMinecraft()
 
     clickDock('Terminal')
     expect(sceneIn(win).dataset.active).toBe('false')
@@ -52,19 +52,19 @@ describe('Blocks app', () => {
   })
 
   it('leaves the keyboard to the Activities overview while it is open', async () => {
-    const { win } = await openBlocks()
+    const { win } = await openMinecraft()
 
     fireEvent.click(screen.getByRole('button', { name: 'Activities' }))
     expect(sceneIn(win).dataset.active).toBe('false')
   })
 
   it('pauses the scene while minimized, and resumes when restored', async () => {
-    const { win, ui } = await openBlocks()
+    const { win, ui } = await openMinecraft()
 
     fireEvent.click(ui.getByRole('button', { name: 'Minimize' }))
     expect(sceneIn(win).dataset.paused).toBe('true')
 
-    clickDock('Blocks')
+    clickDock('Minecraft')
     expect(sceneIn(win).dataset.paused).toBe('false')
   })
 })

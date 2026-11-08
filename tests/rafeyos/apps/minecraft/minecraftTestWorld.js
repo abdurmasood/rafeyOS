@@ -1,5 +1,5 @@
-// A tiny world for Blocks logic tests: listed cells are blocks, everything else air, with stone below y = 0
-import { BLOCK } from '@/components/rafeyos/apps/blocks/logic/blockTypes'
+// A tiny world for Minecraft logic tests: listed cells are blocks, everything else air, with stone below y = 0
+import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
 
 /** @param {Array<[number, number, number, number]>} cells - [x, y, z, block] */
 export const worldOf = (cells = [], fill = () => BLOCK.AIR) => {
