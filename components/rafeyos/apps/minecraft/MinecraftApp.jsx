@@ -3,23 +3,23 @@ import { Suspense, lazy } from 'react'
 import { useShellState } from '@/components/rafeyos/state/logic/contexts'
 import { HeaderBar } from '@/components/rafeyos/wm/HeaderBar'
 import { useWindowChrome } from '@/components/rafeyos/wm/logic/WindowChromeContext'
-import { loadBlocks } from '@/lib/loadBlocks'
+import { loadMinecraft } from '@/lib/loadMinecraft'
 
 // The voxel world, loaded on first open so three.js stays out of the OS chunk
-const BlocksScene = lazy(loadBlocks)
+const MinecraftScene = lazy(loadMinecraft)
 
-/** Blocks: a small voxel world to walk around, break and build in. */
-export const BlocksApp = () => {
+/** Minecraft: a small voxel world to walk around, break and build in. */
+export const MinecraftApp = () => {
   const { focused, minimized } = useWindowChrome()
   const { overview, menu, popup, dialog } = useShellState()
   // The keyboard belongs to the shell while it has something open
   const active = focused && !overview && !menu && !popup && !dialog
   return (
     <>
-      <HeaderBar title="Blocks" />
-      <div className="blocks">
+      <HeaderBar title="Minecraft" />
+      <div className="minecraft">
         <Suspense fallback={null}>
-          <BlocksScene active={active} paused={minimized} />
+          <MinecraftScene active={active} paused={minimized} />
         </Suspense>
       </div>
     </>

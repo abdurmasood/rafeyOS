@@ -1,4 +1,4 @@
-// What Blocks draws over the world: crosshair, position, hotbar, the picked block's name, a note when a build couldn't
+// What Minecraft draws over the world: crosshair, position, hotbar, the picked block's name, a note when a build couldn't
 // be saved, and the cards that ask the player to click in or explain why the world can't show
 import { useEffect, useRef, useState } from 'react'
 import { HOTBAR } from './logic/blockTypes'
@@ -75,13 +75,13 @@ const PlayCard = ({ onPlay }) => (
  *   saveFailure: 'full' | 'blocked' | null, unavailable: boolean, onPlay: () => void,
  * }} props
  */
-export const BlocksHud = ({ hud, showCard, saveFailure, unavailable, onPlay }) => {
+export const MinecraftHud = ({ hud, showCard, saveFailure, unavailable, onPlay }) => {
   const named = useFlash(hud.selected, NAME_SHOWN_FOR)
   if (unavailable) {
     return (
       <div className="bk-cover">
         <div className="bk-card" role="alert">
-          <h2>Blocks can&apos;t start</h2>
+          <h2>Minecraft can&apos;t start</h2>
           <p>It needs WebGL, which this browser has turned off or doesn&apos;t support.</p>
         </div>
       </div>

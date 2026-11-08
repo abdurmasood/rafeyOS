@@ -1,4 +1,4 @@
-// The Blocks world on screen: the three.js scene (sky, fog, chunk meshes, the outline on the aimed-at block), the
+// The Minecraft world on screen: the three.js scene (sky, fog, chunk meshes, the outline on the aimed-at block), the
 // frame loop, and the window it lives in. The renderer and frame scheduler are injected, so tests run it without WebGL.
 import {
   BackSide, BoxGeometry, BufferAttribute, BufferGeometry, Color, DataTexture, EdgesGeometry, Fog, LineBasicMaterial,
@@ -12,7 +12,7 @@ import { chunksTouching, createWorld } from './world'
 import { meshChunk } from './mesher'
 import { createPlayer, eyePosition, liftClear, lookDirection, overlapsBlock, stepPlayer, turn } from './physics'
 import { castRay } from './raycast'
-import { createBlocksInput } from './blocksInput'
+import { createMinecraftInput } from './minecraftInput'
 
 const SKY = Object.freeze({ horizon: '#cfe2f0', zenith: '#5f9ddc', underwater: '#2a5f9e' })
 const FOG = Object.freeze({ near: 34, far: 80, underwaterNear: 1, underwaterFar: 18 })
@@ -237,7 +237,7 @@ const mountRenderer = ({ host, doc, win, createRenderer }) => {
  * @returns {{ setActive: (active: boolean) => void, setPaused: (paused: boolean) => void, capture: () => void, dispose: () => void }}
  * @throws when the browser can't make a WebGL context
  */
-export const createBlocksEngine = ({
+export const createMinecraftEngine = ({
   host, edits = [], onHud = () => {}, onEdit = () => {}, createRenderer = defaultRenderer,
   requestFrame = (run) => requestAnimationFrame(run), cancelFrame = (id) => cancelAnimationFrame(id),
   now = () => performance.now(), doc = host.ownerDocument, win = doc.defaultView,
@@ -251,7 +251,7 @@ export const createBlocksEngine = ({
   const hud = createHud(onHud, player)
   let target = null
   const editor = createEditor({ world, player, chunks, getTarget: () => target, getSelected: hud.selected, onEdit })
-  const input = createBlocksInput({ canvas, doc, win, now, on: {
+  const input = createMinecraftInput({ canvas, doc, win, now, on: {
     turn: (dx, dy) => turn(player, dx, dy),
     breakBlock: editor.breakBlock,
     placeBlock: editor.placeBlock,

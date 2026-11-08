@@ -1,19 +1,19 @@
-// The Blocks world inside its window: starts the engine, saves builds as they change, and draws the HUD over it.
-// Loaded on first open (see lib/loadBlocks) so three.js stays out of the OS chunk.
+// The Minecraft world inside its window: starts the engine, saves builds as they change, and draws the HUD over it.
+// Loaded on first open (see lib/loadMinecraft) so three.js stays out of the OS chunk.
 import { useEffect, useRef, useState } from 'react'
 import { useServices } from '@/components/rafeyos/state/logic/contexts'
-import { createBlocksEngine } from './logic/blocksEngine'
+import { createMinecraftEngine } from './logic/minecraftEngine'
 import { createSaveQueue } from './logic/saveQueue'
 import { WORLD_ID } from './logic/terrain'
-import { BlocksHud } from './BlocksHud'
+import { MinecraftHud } from './MinecraftHud'
 
 const STARTING_HUD = Object.freeze({ playing: false, selected: 0, position: '' })
 
 /**
  * @param {{ active: boolean, paused: boolean }} props - `active`: its window has the keyboard; `paused`: minimized
  */
-export const BlocksScene = ({ active, paused }) => {
-  const { blocks: store } = useServices()
+export const MinecraftScene = ({ active, paused }) => {
+  const { minecraft: store } = useServices()
   const hostRef = useRef(null)
   const engineRef = useRef(null)
   const [hud, setHud] = useState(STARTING_HUD)
@@ -28,7 +28,7 @@ export const BlocksScene = ({ active, paused }) => {
     })
     let engine
     try {
-      engine = createBlocksEngine({ host: hostRef.current, edits: queue.edits(), onHud: setHud, onEdit: queue.record })
+      engine = createMinecraftEngine({ host: hostRef.current, edits: queue.edits(), onHud: setHud, onEdit: queue.record })
     } catch {
       setUnavailable(true)
       return undefined
@@ -62,7 +62,7 @@ export const BlocksScene = ({ active, paused }) => {
   return (
     <>
       <div className="bk-view" ref={hostRef} />
-      <BlocksHud
+      <MinecraftHud
         hud={hud}
         showCard={!(active && hud.playing)}
         saveFailure={saveFailure}

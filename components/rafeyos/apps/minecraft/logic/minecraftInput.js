@@ -1,4 +1,4 @@
-// Mouse and keyboard for Blocks: pointer lock (or drag-to-look where the browser refuses it), held movement keys,
+// Mouse and keyboard for Minecraft: pointer lock (or drag-to-look where the browser refuses it), held movement keys,
 // break and place with hold-to-repeat, and picking a block with 1–9 or the wheel. Input only counts while the window
 // is active and the player has clicked in; losing either lets go of the mouse and every held key.
 
@@ -15,7 +15,7 @@ const DRAG_CLICK = 4
  *         select: (slot: number) => void, scroll: (step: number) => void, playingChanged: (playing: boolean) => void },
  * }} deps
  */
-export const createBlocksInput = ({ canvas, doc, win, now, on }) => {
+export const createMinecraftInput = ({ canvas, doc, win, now, on }) => {
   const keys = new Set()
   const held = new Map()
   let active = false
@@ -129,7 +129,7 @@ export const createBlocksInput = ({ canvas, doc, win, now, on }) => {
   })
 }
 
-/** The DOM listeners, kept apart so createBlocksInput stays readable. */
+/** The DOM listeners, kept apart so createMinecraftInput stays readable. */
 const createHandlers = ({ now, on, keys, held, state }) => ({
   mouseDown: (event) => {
     if (!state.playing()) return
