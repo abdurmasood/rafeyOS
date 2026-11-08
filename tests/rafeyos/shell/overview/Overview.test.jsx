@@ -244,7 +244,7 @@ describe('Activities overview: app grid', () => {
 
     const grid = within(screen.getByRole('group', { name: 'Applications' }))
     expect(grid.getAllByRole('button').map((tile) => tile.textContent)).toEqual([
-      'Files', 'Terminal', 'Text Editor', 'Music', 'Mail', 'Projects', 'Settings', 'Blocks',
+      'Files', 'Terminal', 'Text Editor', 'Music', 'Mail', 'Projects', 'Settings', 'Minecraft',
     ])
     expect(showApps().classList.contains('focused')).toBe(true)
     expect(showApps().getAttribute('aria-pressed')).toBe('true')

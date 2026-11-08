@@ -4,7 +4,7 @@ import { realVfs } from '@/tests/rafeyos/helpers/testVfs'
 
 describe('overview search', () => {
   it('offers every launchable app, in registry order, without Properties', () => {
-    expect(overviewApps()).toEqual(['files', 'terminal', 'editor', 'music', 'mail', 'projects', 'settings', 'blocks'])
+    expect(overviewApps()).toEqual(['files', 'terminal', 'editor', 'music', 'mail', 'projects', 'settings', 'minecraft'])
   })
 
   it('finds files by name, showing the folder each sits in', () => {

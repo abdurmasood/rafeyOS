@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { chunksTouching, createWorld } from '@/components/rafeyos/apps/blocks/logic/world'
-import { generateIsland, voxelIndex } from '@/components/rafeyos/apps/blocks/logic/terrain'
-import { BLOCK } from '@/components/rafeyos/apps/blocks/logic/blockTypes'
+import { chunksTouching, createWorld } from '@/components/rafeyos/apps/minecraft/logic/world'
+import { generateIsland, voxelIndex } from '@/components/rafeyos/apps/minecraft/logic/terrain'
+import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
 
 const island = generateIsland()
 // A spot high in the sky, always air on the generated island

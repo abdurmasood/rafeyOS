@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { SAVE_DELAY, createSaveQueue } from '@/components/rafeyos/apps/blocks/logic/saveQueue'
+import { SAVE_DELAY, createSaveQueue } from '@/components/rafeyos/apps/minecraft/logic/saveQueue'
 
 /** A queue on a manual timer: `fire()` runs whatever is waiting. */
 const manualQueue = (edits = []) => {

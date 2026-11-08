@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ATLAS, flipRows, paintAtlas, tileOrigin } from '@/components/rafeyos/apps/blocks/logic/texturePixels'
-import { TILE } from '@/components/rafeyos/apps/blocks/logic/blockTypes'
+import { ATLAS, flipRows, paintAtlas, tileOrigin } from '@/components/rafeyos/apps/minecraft/logic/texturePixels'
+import { TILE } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
 
 const pixelAt = (pixels, x, y) => [...pixels.subarray((y * ATLAS.SIZE + x) * 4, (y * ATLAS.SIZE + x) * 4 + 4)]
 const isGreen = ([r, g, b]) => g > r && g > b

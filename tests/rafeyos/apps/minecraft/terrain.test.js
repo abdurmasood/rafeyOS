@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   WORLD, WORLD_ID, blockIn, generateIsland, heightAt, inBounds, openView, voxelIndex,
-} from '@/components/rafeyos/apps/blocks/logic/terrain'
-import { BLOCK } from '@/components/rafeyos/apps/blocks/logic/blockTypes'
+} from '@/components/rafeyos/apps/minecraft/logic/terrain'
+import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
 
 // FNV-1a over every block, so any change to generation shows up here
 const checksum = (blocks) => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { castRay } from '@/components/rafeyos/apps/blocks/logic/raycast'
-import { BLOCK } from '@/components/rafeyos/apps/blocks/logic/blockTypes'
-import { worldOf } from './blocksTestWorld'
+import { castRay } from '@/components/rafeyos/apps/minecraft/logic/raycast'
+import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
+import { worldOf } from './minecraftTestWorld'
 
 describe('aiming', () => {
   it('finds the first solid block ahead and the face the ray entered', () => {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   PLAYER, createPlayer, eyePosition, isSwimming, liftClear, lookDirection, overlapsBlock, stepPlayer, turn,
-} from '@/components/rafeyos/apps/blocks/logic/physics'
-import { BLOCK } from '@/components/rafeyos/apps/blocks/logic/blockTypes'
-import { floorAt, worldOf } from './blocksTestWorld'
+} from '@/components/rafeyos/apps/minecraft/logic/physics'
+import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
+import { floorAt, worldOf } from './minecraftTestWorld'
 
 const IDLE = Object.freeze({ forward: 0, strafe: 0, jump: false, sprint: false })
 const at = (x, y, z, yaw = 0) => createPlayer({ x, y, z, yaw, pitch: 0 })
