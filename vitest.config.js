@@ -24,6 +24,7 @@ export default defineConfig({
         'lib/contact.js',
         'lib/help.js',
         'lib/loadRafeyOS.js',
+        'lib/studio/**/*.js',
         'components/rafeyos/**/*.{js,jsx}',
         'components/home/**/*.{js,jsx}',
       ],
