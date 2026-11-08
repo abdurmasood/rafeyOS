@@ -21,6 +21,7 @@ export const HOME_EFFECTS = Object.freeze({
   NEW_TAB: 'newTab',
   HANDOFF: 'handoff',
   NEW_SESSION: 'newSession',
+  STUDIO: 'studio',
 })
 
 /** The blocks the homepage terminal draws; `html` holds trusted lib HTML only. The engine's own (nano, the pickers, skills) rafeyOS's terminal draws too. */
@@ -65,6 +66,13 @@ const projects = (context) => {
   const output = engine(context)
   if (output.stderr?.length || !context.argv.length) return output
   return result([], [{ type: HOME_EFFECTS.PROJECTS_3D }])
+}
+
+// The engine's errors; otherwise the LoadingBar path to the /studio page in this tab, not the engine's new tab
+const studio = (context) => {
+  const output = engine(context)
+  if (output.stderr?.length) return output
+  return result([], [{ type: HOME_EFFECTS.STUDIO }])
 }
 
 const playerFor = (track) => panel(HOME_PANELS.MUSIC_PLAYER, { trackId: track.id }, FOREGROUND)
@@ -160,6 +168,7 @@ const OVERRIDES = {
   bio: (context) => onScreen(context, [html(bioDescription())]),
   contact: (context) => onScreen(context, [html(contactHtml)]),
   projects,
+  studio,
   music,
   cat: reader,
   less: reader,
