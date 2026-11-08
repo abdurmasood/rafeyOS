@@ -1,5 +1,5 @@
 // @ts-check
-// The blocks a Blocks world is made of: their ids, the texture tile on each face, and the hotbar
+// The blocks a Minecraft world is made of: their ids, the texture tile on each face, and the hotbar
 
 export const BLOCK = Object.freeze({
   AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, SAND: 4, LOG: 5, LEAVES: 6, PLANKS: 7, BRICK: 8, SNOW: 9, WATER: 10,

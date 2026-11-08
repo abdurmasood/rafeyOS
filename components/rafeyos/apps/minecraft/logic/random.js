@@ -1,5 +1,5 @@
 // @ts-check
-// Seeded randomness for Blocks: the same seed always grows the same island, trees and textures
+// Seeded randomness for Minecraft: the same seed always grows the same island, trees and textures
 
 /**
  * A small, fast seeded generator of numbers in [0, 1).
