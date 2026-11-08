@@ -1,4 +1,4 @@
-"""Export the /studio geometry (proxies, plants, swaying tree) to a Draco glb plus scene facts.
+"""Export the /studio geometry (proxies, plants, swaying tree, the live figure) to a Draco glb plus scene facts.
 
 The proxies only carry positions: their colour comes from the projected Cycles plates,
 so they exist for depth (occluding live plants and dust) and for world positions
@@ -51,8 +51,7 @@ def is_static_visible(ob: bpy.types.Object) -> bool:
         and not ob.hide_render
         and ob.visible_camera
         and ob.name not in NOT_ROOM
-        # Same locked camera as his renders, so the plates alone draw him right; he'd add ~25k faces here
-        and not ob.name.startswith(sc.FIGURE_PREFIX)
+        and not ob.get(sc.FIGURE_LIVE)  # he and the chair top are drawn live, posed by their bones
     )
 
 
@@ -95,6 +94,95 @@ def build_room_proxy(scene: bpy.types.Scene, coll: bpy.types.Collection) -> bpy.
     )
     print(f"[export] proxy_room: {before} -> {len(bm.faces)} faces")
     return mesh_object("proxy_room", bm, coll, "room")
+
+
+def smoothstep(edge0: float, edge1: float, x: float) -> float:
+    t = max(0.0, min(1.0, (x - edge0) / (edge1 - edge0)))
+    return t * t * (3 - 2 * t)
+
+
+def bone_weights(point: Vector, chain: list[int], skeleton: list[Vector], blend: float) -> tuple[int, int, float]:
+    """The two bones that move `point` and the second one's share, bending smoothly across each joint.
+
+    skeleton[k] is the joint between chain[k] and chain[k + 1]; a part with no skeleton follows chain[0].
+    """
+    if len(chain) == 1:
+        return chain[0], chain[0], 0.0
+    nearest, along, travelled, joints = math.inf, 0.0, 0.0, []
+    for a, b in zip(skeleton, skeleton[1:]):
+        joints.append(travelled)
+        segment = b - a
+        t = max(0.0, min(1.0, (point - a).dot(segment) / segment.length_squared))
+        distance = (point - (a + segment * t)).length
+        if distance < nearest:
+            nearest, along = distance, travelled + t * segment.length
+        travelled += segment.length
+    k = min(range(len(joints)), key=lambda j: abs(along - joints[j]))
+    return chain[k], chain[k + 1], smoothstep(-blend, blend, along - joints[k])
+
+
+FIGURE_MESHES = {"figure": "figure_rafey", "backrest": "figure_backrest"}  # one per colour layer
+
+
+def build_figure_mesh(name: str, parts: dict, index: dict, coll: bpy.types.Collection) -> set[int]:
+    """Live parts as one mesh; every vertex carries the two bones that move it and their mix."""
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    bm = bmesh.new()
+    layers = [bm.verts.layers.float.new(attr) for attr in ("_bone_a", "_bone_b", "_weight_b")]
+    for part_name, part in parts.items():
+        first = len(bm.verts)
+        append_world_mesh(bm, sc.obj(part_name), depsgraph)
+        bm.verts.ensure_lookup_table()
+        chain = [index[bone] for bone in part["chain"]]
+        skeleton = [Vector(p) for p in part["skeleton"]]
+        for vert in bm.verts[first:]:
+            for layer, value in zip(layers, bone_weights(vert.co, chain, skeleton, part["blend"])):
+                vert[layer] = value
+    used = {round(v[layers[0]]) for v in bm.verts} | {round(v[layers[1]]) for v in bm.verts}
+    print(f"[export] {name}: {len(parts)} parts, {len(bm.faces)} faces")
+    ob = mesh_object(name, bm, coll, "figure")
+    ob["studio_name"] = sorted(parts)[0]  # a member of its colour layer, so the page can find that layer
+    return used
+
+
+def build_figure(scene: bpy.types.Scene, coll: bpy.types.Collection) -> None:
+    raw = scene.get(sc.FIGURE_RIG)
+    if raw is None:
+        return
+    rig = json.loads(raw)
+    index = {bone["name"]: i for i, bone in enumerate(rig["bones"])}
+    used: set[int] = set()
+    for layer, name in FIGURE_MESHES.items():
+        parts = {k: v for k, v in rig["parts"].items() if v["layer"] == layer}
+        used |= build_figure_mesh(name, parts, index, coll)
+    print(f"[export] figure bones in use: {len(used)} of {len(index)}")
+
+
+def figure_facts(scene: bpy.types.Scene) -> dict | None:
+    """Bones in parent-first order, pivots in three.js space, for the page to pose."""
+    raw = scene.get(sc.FIGURE_RIG)
+    if raw is None:
+        return None
+    rig = json.loads(raw)
+    index = {bone["name"]: i for i, bone in enumerate(rig["bones"])}
+    return {
+        "bones": [
+            {"name": b["name"], "parent": index[b["parent"]] if b["parent"] else -1, "pivot": sc.to_three_point(b["pivot"])}
+            for b in rig["bones"]
+        ],
+        # where each wrist settles on the armrest when he leans back
+        "rests": {side: sc.to_three_point(point) for side, point in rig["rests"].items()},
+    }
+
+
+def monitor_facts() -> dict:
+    """The screen's corners in three.js space, as you face it: bottom-left, bottom-right, top-left."""
+    screen = sc.obj(sc.MONITOR_SCREEN)
+    corners = [screen.matrix_world @ Vector(c) for c in screen.bound_box]
+    x0, x1 = min(c.x for c in corners), max(c.x for c in corners)
+    z0, z1 = min(c.z for c in corners), max(c.z for c in corners)
+    y = min(c.y for c in corners)  # the screen faces the room (-y)
+    return {"corners": [sc.to_three_point(p) for p in ((x0, y, z0), (x1, y, z0), (x0, y, z1))]}
 
 
 def build_ground_proxy(coll: bpy.types.Collection) -> bpy.types.Object:
@@ -169,6 +257,8 @@ def scene_facts(scene: bpy.types.Scene) -> dict:
         "plants": [
             {"name": n, "slug": slug(n), "height": sc.obj(n)["studio_height"]} for n in sc.PLANTS
         ],
+        "figure": figure_facts(scene),
+        "monitor": monitor_facts(),
     }
 
 
@@ -221,6 +311,7 @@ def main() -> None:
     tree = bpy.data.objects.get(sc.TREE_SWAY)
     if tree is not None:
         live_copy(tree, coll, "tree")
+    build_figure(scene, coll)
     export_glb(coll, args.glb)
     sc.ensure_out_dir(os.path.dirname(args.facts))
     with open(args.facts, "w") as f:
