@@ -1,82 +1,15 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { NearestFilter, NearestMipmapLinearFilter, RepeatWrapping, SRGBColorSpace, ShaderLib, Vector3 } from 'three'
 import { WARM_BATCH, WebGLUnavailableError, createMinecraftEngine } from '@/components/rafeyos/apps/minecraft/logic/minecraftEngine'
 import { voxelIndex } from '@/components/rafeyos/apps/minecraft/logic/terrain'
-import { buildWorld, packWorld, unpackWorld } from '@/components/rafeyos/apps/minecraft/logic/worldBuild'
 import { BLOCK, TILE } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
 import { ATLAS, flipRows, paintAtlas, tilePixels } from '@/components/rafeyos/apps/minecraft/logic/texturePixels'
+import {
+  SEA, drawn, fakeDirector, fakeRenderer, fogOf, installEngineHarness, loaded, lockedElement, seaFogAt, seaHazeAt, shotOver, start, sunk, track,
+} from './minecraftEngineFakes'
 
-// jsdom has no WebGL or pointer lock: a fake renderer, a manual frame queue, and a stand-in lock
-const fakeRenderer = () => ({
-  setPixelRatio: vi.fn(), setSize: vi.fn(), setClearColor: vi.fn(), render: vi.fn(), dispose: vi.fn(), forceContextLoss: vi.fn(),
-})
-let lockedElement = null
-const setLock = (element) => {
-  lockedElement = element
-  document.dispatchEvent(new Event('pointerlockchange'))
-}
-
-// One world for every engine here, as the loader hands it over: generating and meshing it takes seconds
-let loaded
-beforeAll(() => {
-  loaded = unpackWorld(packWorld(buildWorld({ edits: [] })).message)
-}, 60000)
-
-const start = (options = {}) => {
-  const host = document.createElement('div')
-  Object.defineProperty(host, 'clientWidth', { value: 800 })
-  Object.defineProperty(host, 'clientHeight', { value: 600 })
-  document.body.append(host)
-  const renderer = fakeRenderer()
-  const frames = new Map()
-  let nextId = 1
-  let time = 0
-  const hud = vi.fn()
-  const onEdit = vi.fn()
-  const engine = createMinecraftEngine({
-    // A map of its own each time, since the engine empties the one it's given
-    host, island: loaded.island, chunkArrays: new Map(loaded.chunkArrays),
-    onHud: hud, onEdit, createRenderer: () => renderer, now: () => time,
-    requestFrame: (run) => { frames.set(nextId, run); return nextId++ },
-    cancelFrame: (id) => frames.delete(id),
-    ...options,
-  })
-  const canvas = host.querySelector('canvas')
-  /** Runs the waiting frame `count` times, 16 ms apart. */
-  const tick = (count = 1) => {
-    for (let i = 0; i < count; i++) {
-      time += 16
-      const [id, run] = [...frames][0] ?? []
-      if (!run) return
-      frames.delete(id)
-      run(time)
-    }
-  }
-  return { host, canvas, engine, renderer, frames, tick, hud, onEdit, lastHud: () => hud.mock.lastCall[0] }
-}
-
-let running = []
-const track = (world) => {
-  running.push(world)
-  return world
-}
-beforeEach(() => {
-  Object.defineProperty(document, 'pointerLockElement', { configurable: true, get: () => lockedElement })
-  document.exitPointerLock = vi.fn(() => setLock(null))
-  HTMLCanvasElement.prototype.requestPointerLock = function requestPointerLock() {
-    setLock(this)
-  }
-})
-afterEach(() => {
-  running.forEach(({ engine, host }) => {
-    engine.dispose()
-    host.remove()
-  })
-  running = []
-  lockedElement = null
-  delete HTMLCanvasElement.prototype.requestPointerLock
-})
+installEngineHarness()
 
 const play = (world) => {
   world.engine.setActive(true)
@@ -85,12 +18,6 @@ const play = (world) => {
 }
 const lookDown = () => document.dispatchEvent(new MouseEvent('mousemove', { movementX: 0, movementY: 400, bubbles: true }))
 
-/** Draws one frame and returns what the renderer was handed. */
-const drawn = ({ renderer, tick }) => {
-  tick()
-  const [scene, camera] = renderer.render.mock.lastCall
-  return { scene, camera }
-}
 // Chunk meshes are the scene's plain BufferGeometry meshes; the sky is a sphere and the outline is lines
 const chunkMeshes = (scene) => scene.children.filter((child) => child.isMesh && child.geometry.type === 'BufferGeometry')
 
@@ -356,7 +283,6 @@ describe('the Minecraft engine', () => {
   })
 
   describe('with a director', () => {
-    const fakeDirector = (shot = null) => ({ frame: vi.fn(() => shot), toPlayer: vi.fn(), toOrbit: vi.fn() })
     const outlineOf = (scene) => scene.children.find((child) => child.isLineSegments)
 
     it('moves the camera and sky to the shot and hides the outline, which comes back without one', () => {
@@ -389,11 +315,6 @@ describe('the Minecraft engine', () => {
       expect([scene.fog.near, scene.fog.far]).toEqual([55, 175])
     })
 
-    // Open sea deep enough to sink in, and a player who swam out there and sank: its eyes are under water
-    const SEA = { x: 4.5, z: 4.5 }
-    const sunk = () => ({ ...loaded.island, spawn: { ...SEA, y: 20, yaw: 0, pitch: 0 } })
-    const shotOver = ({ x, z }, y, extra) => fakeDirector({ camera: { x, y, z, yaw: 0, pitch: -0.5 }, ...extra })
-    const fogOf = ({ fog }) => [`#${fog.color.getHexString()}`, fog.near, fog.far]
 
     it.each([['land', () => loaded.island.spawn], ['sea', () => SEA]])('fogs a shot high over the %s in clear air though the player is under water', (_, over) => {
       const director = shotOver(over(), 80)
@@ -401,11 +322,15 @@ describe('the Minecraft engine', () => {
       expect(fogOf(drawn(world).scene)).toEqual(['#cfe2f0', 55, 175])
 
       director.frame.mockReturnValue(null)
-      expect(fogOf(drawn(world).scene)).toEqual(['#2a5f9e', 1, 18])
+      const { scene, camera } = drawn(world)
+      expect(fogOf(scene)).toEqual(seaFogAt(camera.position.y))
     })
 
-    it('fogs a shot under the sea blue and close though the player stands on land', () => {
-      expect(fogOf(drawn(track(start({ director: shotOver(SEA, 20) }))).scene)).toEqual(['#2a5f9e', 1, 18])
+    it('hazes a shot under the sea by its depth though the player stands on land', () => {
+      const { scene } = drawn(track(start({ director: shotOver(SEA, 20) })))
+
+      expect(fogOf(scene)).toEqual(seaFogAt(20))
+      expect(scene.fog.far).toBeLessThan(175)
     })
 
     it('lifts the fog over the clear air a high shot sees, though the player is under water', () => {
@@ -432,7 +357,7 @@ describe('the Minecraft engine', () => {
       world.engine.setActive(true)
       world.engine.play(onArrive)
 
-      expect(lockedElement).toBe(world.canvas)
+      expect(lockedElement()).toBe(world.canvas)
       expect(world.lastHud().playing).toBe(false)
       expect(onArrive).not.toHaveBeenCalled()
 
@@ -471,7 +396,7 @@ describe('the Minecraft engine', () => {
       const world = track(start({ director }))
       world.engine.setActive(true)
       world.engine.play(() => {})
-      expect(lockedElement).toBe(world.canvas)
+      expect(lockedElement()).toBe(world.canvas)
       world.engine.toTitle()
       document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit4', bubbles: true }))
 
@@ -494,6 +419,58 @@ describe('the Minecraft engine', () => {
       expect(world.lastHud().playing).toBe(true)
       document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit4', bubbles: true }))
       expect(world.lastHud().selected).toBe(3)
+    })
+  })
+
+  describe('under water', () => {
+    const washOf = ({ host }) => host.querySelector('.bk-wash')
+
+    it('lays a blue wash over the world, under the HUD, at 0.22 of the haze', () => {
+      const world = track(start({ island: sunk() }))
+      const { camera } = drawn(world)
+      const wash = washOf(world)
+
+      expect(world.canvas.nextElementSibling).toBe(wash)
+      expect(Number(wash.style.opacity)).toBeCloseTo(0.22 * seaHazeAt(camera.position.y))
+      expect(Number(wash.style.opacity)).toBeGreaterThan(0.1)
+    })
+
+    it('shows no wash in the air, and clears it once a shot lifts the camera out of the water', () => {
+      const dry = track(start())
+      drawn(dry)
+      expect(Number(washOf(dry).style.opacity)).toBe(0)
+
+      const director = fakeDirector()
+      const world = track(start({ island: sunk(), director }))
+      drawn(world)
+      director.frame.mockReturnValue(shotOver(SEA, 80).frame())
+      drawn(world)
+      expect(washOf(world).style.opacity).toBe('0')
+    })
+
+    it('rewrites the wash only when its strength moves enough to see', () => {
+      const director = fakeDirector()
+      const world = track(start({ island: sunk(), director }))
+      drawn(world)
+      const writes = vi.fn()
+      Object.defineProperty(washOf(world).style, 'opacity', { configurable: true, set: writes })
+
+      // Sinking a few frames moves the haze far less than a visible step
+      world.tick(3)
+      expect(writes).not.toHaveBeenCalled()
+
+      director.frame.mockReturnValue(shotOver(SEA, 80).frame())
+      world.tick()
+      expect(writes.mock.calls).toEqual([['0']])
+    })
+
+    it('takes the wash away on dispose', () => {
+      const world = start()
+      const wash = washOf(world)
+      world.engine.dispose()
+
+      expect(wash.parentElement).toBeNull()
+      world.host.remove()
     })
   })
 })

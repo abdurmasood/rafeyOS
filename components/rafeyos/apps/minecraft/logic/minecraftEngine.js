@@ -15,9 +15,8 @@ import { createPlayer, eyePosition, liftClear, lookDirection, overlapsBlock, ste
 import { castRay } from './raycast'
 import { createMinecraftInput } from './minecraftInput'
 import { IDLE_DIRECTOR, applyShot, startPlaying } from './directorShot'
+import { FOG, SKY, seeWaterFromBelow, setAtmosphereAt } from './atmosphere'
 
-const SKY = Object.freeze({ horizon: '#cfe2f0', zenith: '#5f9ddc', underwater: '#2a5f9e' })
-const FOG = Object.freeze({ near: 55, far: 175, underwaterNear: 1, underwaterFar: 18 })
 // Fog and the far plane both measure view-space depth, so ending the view just past full fog cuts off nothing visible
 const CAMERA_FAR = FOG.far + 8
 const FALL_LIMIT = -20
@@ -25,15 +24,17 @@ const HUD_INTERVAL = 100
 // Longest frame the physics will take in one go, so a stall can't fling the player through the world
 const MAX_FRAME = 0.05
 const COMPASS = Object.freeze(['N', 'W', 'S', 'E'])
+// The blue wash over the world at full haze, and the smallest change in it worth a style write
+const WASH = Object.freeze({ opacity: 0.22, step: 0.005 })
 
 const SKY_VERTEX = 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'
 const SKY_FRAGMENT = `
-  uniform vec3 horizon; uniform vec3 zenith; uniform vec3 sun; varying vec3 vDir;
+  uniform vec3 horizon; uniform vec3 zenith; uniform vec3 sun; uniform float glow; varying vec3 vDir;
   void main() {
     vec3 dir = normalize(vDir);
     vec3 color = mix(horizon, zenith, pow(clamp(dir.y * 1.5, 0.0, 1.0), 0.75));
     float toward = max(dot(dir, sun), 0.0);
-    color += vec3(1.0, 0.93, 0.78) * (pow(toward, 900.0) * 1.6 + pow(toward, 12.0) * 0.12);
+    color += vec3(1.0, 0.93, 0.78) * (pow(toward, 900.0) * 1.6 + pow(toward, 12.0) * 0.12) * glow;
     gl_FragColor = vec4(color, 1.0);
     #include <colorspace_fragment>
   }`
@@ -97,7 +98,11 @@ const createView = () => {
   // Inside the far plane, or the dome itself would be clipped away
   const sky = new Mesh(new SphereGeometry(FOG.far, 32, 16), new ShaderMaterial({
     side: BackSide, depthWrite: false, fog: false, vertexShader: SKY_VERTEX, fragmentShader: SKY_FRAGMENT,
-    uniforms: { horizon: { value: horizon }, zenith: { value: new Color(SKY.zenith) }, sun: { value: new Vector3(0.45, 0.55, -0.7).normalize() } },
+    // Their own Colors: setAtmosphereAt rewrites these in place, and view.horizon is also the fog's dry-air colour
+    uniforms: {
+      horizon: { value: new Color(SKY.horizon) }, zenith: { value: new Color(SKY.zenith) },
+      sun: { value: new Vector3(0.45, 0.55, -0.7).normalize() }, glow: { value: 1 },
+    },
   }))
   // The dome (radius FOG.far) is now nearer than some terrain, so sorting behind by material id alone isn't enough
   sky.renderOrder = -1
@@ -107,6 +112,7 @@ const createView = () => {
     water: new MeshBasicMaterial({ map: textures.water, vertexColors: true, transparent: true, opacity: 0.74, depthWrite: false }),
   }
   materials.solid.onBeforeCompile = sampleAtCentroid
+  seeWaterFromBelow(materials.water)
   const box = new BoxGeometry(1.004, 1.004, 1.004)
   const outline = new LineSegments(new EdgesGeometry(box), new LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.65 }))
   box.dispose()
@@ -122,7 +128,7 @@ const createView = () => {
     textures.blocks.dispose()
     textures.water.dispose()
   }
-  return { scene, camera, sky, outline, materials, horizon, underwater: new Color(SKY.underwater), dispose }
+  return { scene, camera, sky, outline, materials, horizon, zenith: new Color(SKY.zenith), underwater: new Color(SKY.underwater), haze: 0, dispose }
 }
 
 // A 512² world's chunk arrays would otherwise sit in memory twice, once here and once on the GPU. Dropping ours after
@@ -237,16 +243,7 @@ const positionText = ({ pos, yaw }) => {
   return `x ${pos.x.toFixed(1)} · y ${pos.y.toFixed(1)} · z ${pos.z.toFixed(1)} · ${heading}`
 }
 
-/** Sets the fog for a camera at `eye`: thick and blue inside water, the horizon's haze anywhere else. */
-const setFogAt = (view, world, eye) => {
-  const { fog } = view.scene
-  const underwater = world.get(Math.floor(eye.x), Math.floor(eye.y), Math.floor(eye.z)) === BLOCK.WATER
-  fog.color.copy(underwater ? view.underwater : view.horizon)
-  fog.near = underwater ? FOG.underwaterNear : FOG.near
-  fog.far = underwater ? FOG.underwaterFar : FOG.far
-}
-
-/** Points the camera from the player's eyes, finds the aimed-at block, and tints the fog blue under water. */
+/** Points the camera from the player's eyes, finds the aimed-at block, and sets fog and sky for the eyes' depth. */
 const updateView = (view, world, player) => {
   const { camera, sky, outline } = view
   const eye = eyePosition(player)
@@ -257,7 +254,7 @@ const updateView = (view, world, player) => {
   const target = castRay(world, eye, lookDirection(player))
   outline.visible = Boolean(target)
   if (target) outline.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
-  setFogAt(view, world, eye)
+  setAtmosphereAt(view, world, eye)
   return target
 }
 
@@ -290,11 +287,12 @@ const watchContextRestore = (canvas, chunks) => {
   return () => canvas.removeEventListener('webglcontextrestored', restore)
 }
 
-/** Draws one frame, warming the next batch of never-drawn chunks first (see WARM_BATCH). */
-const drawFrame = ({ renderer, view, chunks }) => {
+/** Draws one frame, warming the next batch of never-drawn chunks first (see WARM_BATCH), and washes it for the haze. */
+const drawFrame = ({ renderer, view, chunks, wash }) => {
   chunks.warm()
   renderer.setClearColor(view.scene.fog.color)
   renderer.render(view.scene, view.camera)
+  wash.show(view.haze)
 }
 
 /** HUD state, sent whole to `onHud` on every change; the position at most every HUD_INTERVAL ms. */
@@ -343,6 +341,29 @@ const mountRenderer = ({ host, doc, win, createRenderer }) => {
   } catch (error) {
     canvas.remove()
     throw new WebGLUnavailableError(error)
+  }
+}
+
+/**
+ * The blue wash over the world under water, WASH.opacity at full haze. It goes after the canvas in `host`, and the HUD
+ * comes after `host`, so it lies between the two.
+ */
+const createWash = (host, doc) => {
+  const element = doc.createElement('div')
+  element.className = 'bk-wash'
+  host.append(element)
+  let shown = 0
+  return {
+    /** @param {number} haze - 0 in air to 1 at full depth (setAtmosphereAt) */
+    show: (haze) => {
+      const opacity = WASH.opacity * haze
+      // Every write restyles the page, so changes too small to see are skipped; but clearing always lands on 0
+      const unseen = opacity === 0 ? shown === 0 : Math.abs(opacity - shown) < WASH.step
+      if (unseen) return
+      shown = opacity
+      element.style.opacity = String(opacity)
+    },
+    remove: () => element.remove(),
   }
 }
 
@@ -397,10 +418,11 @@ const assembleEngine = ({
   const world = createWorld(island, edits)
   const player = liftClear(createPlayer(island.spawn), world)
   const view = createView()
-  releases.push(view.dispose)
+  const wash = createWash(host, doc)
+  releases.push(view.dispose, wash.remove)
   const chunks = createChunks(view.scene, world, view.materials, chunkArrays)
   releases.push(chunks.dispose)
-  const shotFog = { clear: FOG, setAt: (eye) => setFogAt(view, world, eye) }
+  const shotFog = { clear: FOG, setAt: (eye) => setAtmosphereAt(view, world, eye) }
   const hud = createHud(onHud, player)
   let target = null
   const editor = createEditor({ world, player, chunks, getTarget: () => target, getSelected: hud.selected, onEdit })
@@ -421,7 +443,7 @@ const assembleEngine = ({
     target = updateView(view, world, player)
     const shot = director.frame({ dt, eye: eyePosition(player), yaw: player.yaw, pitch: player.pitch })
     if (shot) applyShot(view, shot, shotFog)
-    drawFrame({ renderer, view, chunks })
+    drawFrame({ renderer, view, chunks, wash })
     hud.track(time)
   } })
   releases.push(loop.stop)
