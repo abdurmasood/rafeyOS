@@ -14,12 +14,18 @@ const ORIGINAL_HELP = [
   '',
   "<span class='grey'>Use ↑ for history, tab to autocomplete, 'clear' to reset.</span>",
 ].join('\n')
+// Both terminals now leave music out of help; typing it still works
+const ORIGINAL_WITHOUT_MUSIC = ORIGINAL_HELP.split('\n').filter((line) => !line.includes('music'))
 
 describe('help text', () => {
-  it('renders exactly the help block the terminal showed before extraction', () => {
+  it('renders the help block the terminal showed before extraction, without music', () => {
     const rendered = [...HELP_LINES, HELP_HINT].join('\n')
 
-    expect(rendered).toBe(ORIGINAL_HELP)
+    expect(rendered).toBe(ORIGINAL_WITHOUT_MUSIC.join('\n'))
+  })
+
+  it('keeps music out of the shared list that rafeyOS itself shows', () => {
+    expect(HELP_LINES.join('\n')).not.toContain('music')
   })
 
   it('aligns the os row with the existing description column', () => {
@@ -41,9 +47,8 @@ describe('help text', () => {
 
   it('leaves every other home help row exactly as it was, without music', () => {
     const withoutRafeyos = HOME_HELP_LINES.filter((line) => line !== RAFEYOS_HELP_LINE)
-    const withoutMusic = ORIGINAL_HELP.split('\n').filter((line) => !line.includes('music'))
 
-    expect([...withoutRafeyos, HELP_HINT]).toEqual(withoutMusic)
+    expect([...withoutRafeyos, HELP_HINT]).toEqual(ORIGINAL_WITHOUT_MUSIC)
     expect(HOME_HELP_LINES.join('\n')).not.toContain('music')
   })
 

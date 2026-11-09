@@ -80,13 +80,13 @@ describe('a second terminal\'s own commands', () => {
 })
 
 describe('content commands', () => {
-  it('help prints the help block and a dim hint', () => {
+  it('help prints the help block, without music, and a dim hint', () => {
     const out = run('help', '/home/rafey', { content: realContent })
 
     expect(out.lines[0].text).toBe(
       "Available commands:\n\n  bio         biography\n  skills      toolkit\n" +
         "  projects    body of work\n  blog        thoughts\n" +
-        '  music       production\n  contact     get in touch\n',
+        '  contact     get in touch\n',
     )
     expect(out.lines[1]).toEqual({ type: 'dim', text: "Use ↑ for history, tab to autocomplete, 'clear' to reset." })
   })
