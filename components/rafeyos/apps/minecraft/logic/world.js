@@ -1,13 +1,13 @@
 // @ts-check
-// The world the player changes: a copy of the island with saved edits applied. Each change reports itself as a save
-// entry, so only blocks that differ from the generated island are ever stored.
+// The world the player changes: a copy of the generated world with saved edits applied. Each change reports itself as a save
+// entry, so only blocks that differ from the generated world are ever stored.
 import { isKnownBlock } from './blockTypes'
 import { WORLD, blockIn, inBounds, voxelIndex } from './terrain'
 
 /**
  * @import { Island, Spawn } from './terrain'
  * @typedef {[number, number]} BlockEdit - [voxel index, block]
- * @typedef {[number, number | null]} BlockChange - [voxel index, block, or null when it matches the island again]
+ * @typedef {[number, number | null]} BlockChange - [voxel index, block, or null when it matches the generated world again]
  * @typedef {{
  *   get: (x: number, y: number, z: number) => number,
  *   set: (x: number, y: number, z: number, block: number) => BlockChange | null,
@@ -18,7 +18,7 @@ import { WORLD, blockIn, inBounds, voxelIndex } from './terrain'
 
 /**
  * @param {Island} island
- * @param {ReadonlyArray<BlockEdit>} [edits] - from a save; entries that don't fit this island are skipped
+ * @param {ReadonlyArray<BlockEdit>} [edits] - from a save; entries that don't fit this world are skipped
  * @returns {World}
  */
 export const createWorld = (island, edits = []) => {
@@ -45,7 +45,7 @@ export const createWorld = (island, edits = []) => {
  * shading read the blocks next door.
  * @param {number} x
  * @param {number} z
- * @returns {Array<[number, number]>} [cx, cz] pairs inside the island
+ * @returns {Array<[number, number]>} [cx, cz] pairs inside the world
  */
 export const chunksTouching = (x, z) => {
   const last = WORLD.SIZE / WORLD.CHUNK - 1

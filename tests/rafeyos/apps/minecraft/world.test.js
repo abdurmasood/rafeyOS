@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { chunksTouching, createWorld } from '@/components/rafeyos/apps/minecraft/logic/world'
-import { generateIsland, voxelIndex } from '@/components/rafeyos/apps/minecraft/logic/terrain'
+import { voxelIndex } from '@/components/rafeyos/apps/minecraft/logic/terrain'
 import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
+import { generateMainland } from '@/components/rafeyos/apps/minecraft/logic/mainland'
 
-const island = generateIsland()
-// A spot high in the sky, always air on the generated island
+const island = generateMainland()
+// A spot high in the sky, always air: the world is only 96 tall and nothing grows near that
 const SKY = [10, 60, 10]
 const skyIndex = voxelIndex(...SKY)
 
@@ -13,7 +14,7 @@ describe('the changeable world', () => {
     const world = createWorld(island)
     const { x, y, z } = island.spawn
 
-    expect(world.get(Math.floor(x), y - 1, Math.floor(z))).toBe(BLOCK.GRASS)
+    expect(world.get(Math.floor(x), y - 1, Math.floor(z))).toBe(BLOCK.SAND)
     expect(world.get(...SKY)).toBe(BLOCK.AIR)
     expect(world.spawn).toBe(island.spawn)
   })
@@ -67,6 +68,6 @@ describe('chunks touching a block', () => {
 
   it('stays on the island at its edges', () => {
     expect(chunksTouching(0, 0)).toEqual([[0, 0]])
-    expect(chunksTouching(95, 95)).toEqual([[5, 5]])
+    expect(chunksTouching(511, 511)).toEqual([[31, 31]])
   })
 })

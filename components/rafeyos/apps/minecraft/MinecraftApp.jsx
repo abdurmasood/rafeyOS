@@ -8,7 +8,7 @@ import { loadMinecraft } from '@/lib/loadMinecraft'
 // The voxel world, loaded on first open so three.js stays out of the OS chunk
 const MinecraftScene = lazy(loadMinecraft)
 
-/** Minecraft: a small voxel world to walk around, break and build in. */
+/** Minecraft: a 512 × 512 block voxel world to walk around, break and build in. */
 export const MinecraftApp = () => {
   const { focused, minimized } = useWindowChrome()
   const { overview, menu, popup, dialog } = useShellState()

@@ -17,18 +17,6 @@ export const mulberry32 = (seed) => {
 }
 
 /**
- * A repeatable number in [0, 1) for one grid cell, the corner values of the terrain noise.
- * @param {number} seed
- * @param {number} x
- * @param {number} z
- */
-export const hash2 = (seed, x, z) => {
-  let h = (Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(seed, 982451653)) | 0
-  h = Math.imul(h ^ (h >>> 13), 1274126177)
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
-}
-
-/**
  * A repeatable 32-bit integer for one grid cell, the corner values of the terrain noise.
  * @param {number} seed
  * @param {number} x
