@@ -4,6 +4,7 @@ import { useShellState } from '@/components/rafeyos/state/logic/contexts'
 import { HeaderBar } from '@/components/rafeyos/wm/HeaderBar'
 import { useWindowChrome } from '@/components/rafeyos/wm/logic/WindowChromeContext'
 import { loadMinecraft } from '@/lib/loadMinecraft'
+import { SHAPING_STATUS, TitleBlock } from './MinecraftMenus'
 
 // The voxel world, loaded on first open so three.js stays out of the OS chunk
 const MinecraftScene = lazy(loadMinecraft)
@@ -18,7 +19,7 @@ export const MinecraftApp = () => {
     <>
       <HeaderBar title="Minecraft" />
       <div className="minecraft">
-        <Suspense fallback={null}>
+        <Suspense fallback={<TitleBlock status={SHAPING_STATUS} />}>
           <MinecraftScene active={active} paused={minimized} />
         </Suspense>
       </div>
