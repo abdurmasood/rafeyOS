@@ -13,6 +13,7 @@ import { useEmptyTrash } from '@/components/rafeyos/ui/menus/logic/useTrashActio
 import { OVERVIEW_MODES } from '@/components/rafeyos/wm/logic/overviewModel'
 import { SHELL_ACTIONS } from '@/components/rafeyos/state/logic/shellReducer'
 import { useDockMagnify } from './logic/useDockMagnify'
+import { useDockSounds } from './logic/useDockSounds'
 
 const MAX_DOTS = 4
 // Matches .dk's calc(var(--icon) + 6px): the button the magnifier grows from
@@ -165,6 +166,7 @@ export const Dock = () => {
   const focusedApp = windows.byId[windows.focusedId]?.appId ?? null
   const apps = dockApps(windows)
   const { hot, controls: magnify } = useDockMagnify({ groups: [apps, SYSTEM_KEYS], rest: iconSize + BUTTON_INSET, reduced: reducedMotion })
+  const playClick = useDockSounds(hot)
   // A right-clicked icon stays swollen until its menu closes (an item chosen, or a click elsewhere)
   const heldKey = useShellState().menu?.dockKey ?? null
   useEffect(() => magnify.hold(heldKey), [magnify, heldKey])
@@ -195,7 +197,7 @@ export const Dock = () => {
     windowManager.openApp(APP.FILES, { path: TRASH, from: rectOfElement(event.currentTarget) })
   }
   return (
-    <div className={`dock ${dockPos}`} role="toolbar" aria-label="Dock" onPointerLeave={magnify.leave}>
+    <div className={`dock ${dockPos}`} role="toolbar" aria-label="Dock" onPointerLeave={magnify.leave} onClick={playClick}>
       {apps.map((appId) => (
         <DockButton
           key={appId}

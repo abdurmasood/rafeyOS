@@ -7,6 +7,7 @@ import { LockScreen, SuspendScreen } from './SessionScreens'
 import { DesktopProvider } from '@/components/rafeyos/session/DesktopProvider'
 import { HandoffOpener } from './HandoffOpener'
 import { SettingsProvider } from '@/components/rafeyos/state/SettingsProvider'
+import { SoundProvider } from '@/components/rafeyos/state/SoundProvider'
 import { Desktop } from '@/components/rafeyos/shell/Desktop'
 
 const GoneScreen = () => <div className="rafeyos-boot" aria-hidden="true" />
@@ -41,6 +42,8 @@ const SessionScreens = () => {
 /** Settings sit above the session, so a restart keeps them (and the boot splash shows the accent). */
 export const SessionGate = () => (
   <SettingsProvider>
-    <SessionScreens />
+    <SoundProvider>
+      <SessionScreens />
+    </SoundProvider>
   </SettingsProvider>
 )
