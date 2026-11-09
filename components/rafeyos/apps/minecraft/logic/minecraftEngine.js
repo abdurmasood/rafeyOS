@@ -3,7 +3,7 @@
 import {
   BackSide, BoxGeometry, BufferAttribute, BufferGeometry, Color, DataTexture, EdgesGeometry, Fog, LineBasicMaterial,
   LineSegments, Mesh, MeshBasicMaterial, NearestFilter, NearestMipmapLinearFilter, PerspectiveCamera, RGBAFormat,
-  RepeatWrapping, SRGBColorSpace, Scene, ShaderMaterial, Sphere, SphereGeometry, Vector3, WebGLRenderer,
+  RepeatWrapping, SRGBColorSpace, Scene, ShaderChunk, ShaderMaterial, Sphere, SphereGeometry, Vector3, WebGLRenderer,
 } from 'three'
 import { BLOCK, HOTBAR, TILE, isSolid } from './blockTypes'
 import { ATLAS, flipRows, paintAtlas, tilePixels } from './texturePixels'
@@ -38,6 +38,22 @@ const SKY_FRAGMENT = `
   }`
 
 const defaultRenderer = (canvas) => new WebGLRenderer({ canvas, antialias: true })
+
+// With antialias on, a sliver of a face that covers a sample but not the pixel's centre is still shaded at the centre,
+// off the face, so its varyings are extrapolated. The corner-shading vertex colour can come out negative there, the
+// sRGB encode turns that into NaN, and NaN survives even full fog: black specks in the far fog. The fog depth drifts
+// off the same way. Centroid sampling keeps both on the face.
+const CENTROID_VARYING = /varying (\w+) (vColor|vFogDepth);/g
+
+/** A built-in material's compile hook: reads its vertex colour and fog depth at the centroid (see CENTROID_VARYING). */
+const sampleAtCentroid = (shader) => {
+  for (const stage of ['vertexShader', 'fragmentShader']) {
+    shader[stage] = shader[stage]
+      // The declarations sit in these chunks, which three inlines only after this hook
+      .replace(/#include <((?:color|fog)_pars_(?:vertex|fragment))>/g, (include, name) => ShaderChunk[name])
+      .replace(CENTROID_VARYING, 'centroid varying $1 $2;')
+  }
+}
 
 /**
  * A square pixel-art texture with its own mip chain, so distant blocks show their tile's average instead of
@@ -89,6 +105,7 @@ const createView = () => {
     solid: new MeshBasicMaterial({ map: textures.blocks, vertexColors: true }),
     water: new MeshBasicMaterial({ map: textures.water, vertexColors: true, transparent: true, opacity: 0.74, depthWrite: false }),
   }
+  materials.solid.onBeforeCompile = sampleAtCentroid
   const box = new BoxGeometry(1.004, 1.004, 1.004)
   const outline = new LineSegments(new EdgesGeometry(box), new LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.65 }))
   box.dispose()

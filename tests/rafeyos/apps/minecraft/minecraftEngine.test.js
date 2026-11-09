@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { NearestFilter, NearestMipmapLinearFilter, RepeatWrapping, SRGBColorSpace, Vector3 } from 'three'
+import { NearestFilter, NearestMipmapLinearFilter, RepeatWrapping, SRGBColorSpace, ShaderLib, Vector3 } from 'three'
 import { WARM_BATCH, WebGLUnavailableError, createMinecraftEngine } from '@/components/rafeyos/apps/minecraft/logic/minecraftEngine'
 import { voxelIndex } from '@/components/rafeyos/apps/minecraft/logic/terrain'
 import { buildWorld, packWorld, unpackWorld } from '@/components/rafeyos/apps/minecraft/logic/worldBuild'
@@ -241,6 +241,21 @@ describe('the Minecraft engine', () => {
     world.engine.dispose()
     world.host.remove()
     expect(disposed).toHaveBeenCalledTimes(2)
+  })
+
+  it('shades blocks with their vertex colour and fog depth read at the centroid, so no antialiased sliver turns black', () => {
+    const solid = chunkMeshes(drawn(track(start())).scene).find((mesh) => mesh.renderOrder === 0).material
+    // What three hands the hook: the built-in shader, its chunks not yet inlined
+    const shader = { vertexShader: ShaderLib.basic.vertexShader, fragmentShader: ShaderLib.basic.fragmentShader }
+
+    solid.onBeforeCompile(shader)
+
+    for (const source of [shader.vertexShader, shader.fragmentShader]) {
+      expect(source).toContain('centroid varying vec3 vColor;')
+      expect(source).toContain('centroid varying float vFogDepth;')
+      // Both stages must agree, or the program won't link
+      expect(source.match(/(?<!centroid )varying \w+ (vColor|vFogDepth);/g)).toBeNull()
+    }
   })
 
   it('starts from the prebuilt chunks, taking them out of the map so nothing else keeps their arrays alive', () => {
