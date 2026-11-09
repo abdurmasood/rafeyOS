@@ -14,6 +14,7 @@ import { meshChunk } from './mesher'
 import { createPlayer, eyePosition, liftClear, lookDirection, overlapsBlock, stepPlayer, turn } from './physics'
 import { castRay } from './raycast'
 import { createMinecraftInput } from './minecraftInput'
+import { IDLE_DIRECTOR, applyShot, startPlaying } from './directorShot'
 
 const SKY = Object.freeze({ horizon: '#cfe2f0', zenith: '#5f9ddc', underwater: '#2a5f9e' })
 const FOG = Object.freeze({ near: 55, far: 175, underwaterNear: 1, underwaterFar: 18 })
@@ -236,9 +237,18 @@ const positionText = ({ pos, yaw }) => {
   return `x ${pos.x.toFixed(1)} · y ${pos.y.toFixed(1)} · z ${pos.z.toFixed(1)} · ${heading}`
 }
 
+/** Sets the fog for a camera at `eye`: thick and blue inside water, the horizon's haze anywhere else. */
+const setFogAt = (view, world, eye) => {
+  const { fog } = view.scene
+  const underwater = world.get(Math.floor(eye.x), Math.floor(eye.y), Math.floor(eye.z)) === BLOCK.WATER
+  fog.color.copy(underwater ? view.underwater : view.horizon)
+  fog.near = underwater ? FOG.underwaterNear : FOG.near
+  fog.far = underwater ? FOG.underwaterFar : FOG.far
+}
+
 /** Points the camera from the player's eyes, finds the aimed-at block, and tints the fog blue under water. */
 const updateView = (view, world, player) => {
-  const { camera, scene, sky, outline } = view
+  const { camera, sky, outline } = view
   const eye = eyePosition(player)
   camera.position.set(eye.x, eye.y, eye.z)
   camera.rotation.set(player.pitch, player.yaw, 0)
@@ -247,10 +257,7 @@ const updateView = (view, world, player) => {
   const target = castRay(world, eye, lookDirection(player))
   outline.visible = Boolean(target)
   if (target) outline.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
-  const underwater = world.get(Math.floor(eye.x), Math.floor(eye.y), Math.floor(eye.z)) === BLOCK.WATER
-  scene.fog.color.copy(underwater ? view.underwater : view.horizon)
-  scene.fog.near = underwater ? FOG.underwaterNear : FOG.near
-  scene.fog.far = underwater ? FOG.underwaterFar : FOG.far
+  setFogAt(view, world, eye)
   return target
 }
 
@@ -350,10 +357,13 @@ const mountRenderer = ({ host, doc, win, createRenderer }) => {
  *   createRenderer?: (canvas: HTMLCanvasElement) => object,
  *   requestFrame?: (run: (time: number) => void) => number, cancelFrame?: (id: number) => void,
  *   now?: () => number, doc?: Document, win?: Window,
+ *   director?: { frame: (view: { dt: number, eye: { x: number, y: number, z: number }, yaw: number, pitch: number }) =>
+ *     null | { camera?: { x: number, y: number, z: number, yaw: number, pitch: number }, fogLift?: number },
+ *     toPlayer: (onArrive: () => void) => void, toOrbit: () => void },
  * }} options - `island` and `chunkArrays` come from the world loader (worldLoader.js), the chunks meshed with the
  *   same `edits`. The voxels are copied into a world of the engine's own: physics, aiming and edits read them here.
  *   `chunkArrays` is consumed: the engine empties the map once its first meshes are built, so don't reuse it.
- * @returns {{ setActive: (active: boolean) => void, setPaused: (paused: boolean) => void, capture: () => void, dispose: () => void }}
+ * @returns {{ setActive: (active: boolean) => void, setPaused: (paused: boolean) => void, capture: () => void, play: (onArrive: () => void) => void, toTitle: () => void, dispose: () => void }}
  * @throws {WebGLUnavailableError} when the browser can't make a WebGL context; anything else thrown while building
  *   comes after the canvas and renderer went again, so nothing is left behind
  */
@@ -382,7 +392,7 @@ export const createMinecraftEngine = (options) => {
 const assembleEngine = ({
   host, island, chunkArrays, edits = [], onHud = () => {}, onEdit = () => {}, canvas, renderer,
   requestFrame = (run) => requestAnimationFrame(run), cancelFrame = (id) => cancelAnimationFrame(id),
-  now = () => performance.now(), doc, win,
+  now = () => performance.now(), doc, win, director = IDLE_DIRECTOR,
 }, releases, release) => {
   const world = createWorld(island, edits)
   const player = liftClear(createPlayer(island.spawn), world)
@@ -390,6 +400,7 @@ const assembleEngine = ({
   releases.push(view.dispose)
   const chunks = createChunks(view.scene, world, view.materials, chunkArrays)
   releases.push(chunks.dispose)
+  const shotFog = { clear: FOG, setAt: (eye) => setFogAt(view, world, eye) }
   const hud = createHud(onHud, player)
   let target = null
   const editor = createEditor({ world, player, chunks, getTarget: () => target, getSelected: hud.selected, onEdit })
@@ -408,6 +419,8 @@ const assembleEngine = ({
     if (player.pos.y < FALL_LIMIT) Object.assign(player, liftClear(createPlayer(island.spawn), world))
     input.tick(time)
     target = updateView(view, world, player)
+    const shot = director.frame({ dt, eye: eyePosition(player), yaw: player.yaw, pitch: player.pitch })
+    if (shot) applyShot(view, shot, shotFog)
     drawFrame({ renderer, view, chunks })
     hud.track(time)
   } })
@@ -419,6 +432,8 @@ const assembleEngine = ({
     setActive: (active) => input.setActive(active),
     setPaused: (paused) => (paused ? loop.stop() : loop.start()),
     capture: () => input.capture(),
+    play: (onArrive) => startPlaying({ input, director }, onArrive),
+    toTitle: () => director.toOrbit(),
     dispose: release,
   })
 }

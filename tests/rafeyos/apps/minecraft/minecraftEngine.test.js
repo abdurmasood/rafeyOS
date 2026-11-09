@@ -354,4 +354,146 @@ describe('the Minecraft engine', () => {
     expect(disconnect).toHaveBeenCalled()
     expect(world.renderer.setPixelRatio).toHaveBeenCalledWith(2)
   })
+
+  describe('with a director', () => {
+    const fakeDirector = (shot = null) => ({ frame: vi.fn(() => shot), toPlayer: vi.fn(), toOrbit: vi.fn() })
+    const outlineOf = (scene) => scene.children.find((child) => child.isLineSegments)
+
+    it('moves the camera and sky to the shot and hides the outline, which comes back without one', () => {
+      lookDown()
+      const director = fakeDirector({ camera: { x: 10, y: 80, z: 20, yaw: 1.2, pitch: -0.5 } })
+      const world = play(track(start({ director })))
+      lookDown()
+      const shot = drawn(world)
+      const sky = shot.scene.children.find((child) => child.geometry?.type === 'SphereGeometry')
+
+      expect(shot.camera.position.toArray()).toEqual([10, 80, 20])
+      expect([shot.camera.rotation.x, shot.camera.rotation.y, shot.camera.rotation.order]).toEqual([-0.5, 1.2, 'YXZ'])
+      expect(sky.position.toArray()).toEqual([10, 80, 20])
+      expect(outlineOf(shot.scene).visible).toBe(false)
+
+      director.frame.mockReturnValue(null)
+      expect(outlineOf(drawn(world).scene).visible).toBe(true)
+    })
+
+    it('lifts the fog from 2 blocks, keeping its near and far in the same ratio', () => {
+      const { scene } = drawn(track(start({ director: fakeDirector({ fogLift: 0.5 }) })))
+
+      expect(scene.fog.far).toBeCloseTo(2 + (175 - 2) * 0.5)
+      expect(scene.fog.near).toBeCloseTo((scene.fog.far * 55) / 175)
+    })
+
+    it('leaves the player view and fog alone while the shot is empty', () => {
+      const { scene } = drawn(track(start({ director: fakeDirector({}) })))
+
+      expect([scene.fog.near, scene.fog.far]).toEqual([55, 175])
+    })
+
+    // Open sea deep enough to sink in, and a player who swam out there and sank: its eyes are under water
+    const SEA = { x: 4.5, z: 4.5 }
+    const sunk = () => ({ ...loaded.island, spawn: { ...SEA, y: 20, yaw: 0, pitch: 0 } })
+    const shotOver = ({ x, z }, y, extra) => fakeDirector({ camera: { x, y, z, yaw: 0, pitch: -0.5 }, ...extra })
+    const fogOf = ({ fog }) => [`#${fog.color.getHexString()}`, fog.near, fog.far]
+
+    it.each([['land', () => loaded.island.spawn], ['sea', () => SEA]])('fogs a shot high over the %s in clear air though the player is under water', (_, over) => {
+      const director = shotOver(over(), 80)
+      const world = track(start({ island: sunk(), director }))
+      expect(fogOf(drawn(world).scene)).toEqual(['#cfe2f0', 55, 175])
+
+      director.frame.mockReturnValue(null)
+      expect(fogOf(drawn(world).scene)).toEqual(['#2a5f9e', 1, 18])
+    })
+
+    it('fogs a shot under the sea blue and close though the player stands on land', () => {
+      expect(fogOf(drawn(track(start({ director: shotOver(SEA, 20) }))).scene)).toEqual(['#2a5f9e', 1, 18])
+    })
+
+    it('lifts the fog over the clear air a high shot sees, though the player is under water', () => {
+      const { scene } = drawn(track(start({ island: sunk(), director: shotOver(SEA, 80, { fogLift: 0.5 }) })))
+      expect(fogOf(scene)).toEqual(['#cfe2f0', expect.closeTo((88.5 * 55) / 175), expect.closeTo(88.5)])
+    })
+
+    it('hands the director the frame time and the player pose', () => {
+      const director = fakeDirector()
+      const { tick } = track(start({ director }))
+      tick()
+
+      expect(director.frame).toHaveBeenCalledWith({
+        dt: expect.any(Number), eye: { x: expect.any(Number), y: expect.any(Number), z: expect.any(Number) },
+        yaw: expect.any(Number), pitch: expect.any(Number),
+      })
+      expect(director.frame.mock.lastCall[0].dt).toBeLessThanOrEqual(0.05)
+    })
+
+    it('captures the mouse on play but keeps input muted until the glide lands', () => {
+      const director = fakeDirector()
+      const world = track(start({ director }))
+      const onArrive = vi.fn()
+      world.engine.setActive(true)
+      world.engine.play(onArrive)
+
+      expect(lockedElement).toBe(world.canvas)
+      expect(world.lastHud().playing).toBe(false)
+      expect(onArrive).not.toHaveBeenCalled()
+
+      director.toPlayer.mock.lastCall[0]()
+
+      expect(world.lastHud().playing).toBe(true)
+      expect(onArrive).toHaveBeenCalledTimes(1)
+    })
+
+    it('plays at once with the default director', () => {
+      const world = track(start())
+      const onArrive = vi.fn()
+      world.engine.setActive(true)
+      world.engine.play(onArrive)
+
+      expect(world.lastHud().playing).toBe(true)
+      expect(onArrive).toHaveBeenCalledTimes(1)
+    })
+
+    it('stays muted through the glide in drag mode, where capture engages at once', () => {
+      delete HTMLCanvasElement.prototype.requestPointerLock
+      const director = fakeDirector()
+      const world = track(start({ director }))
+      world.engine.setActive(true)
+      world.engine.play(() => {})
+
+      expect(world.hud.mock.calls.some(([hud]) => hud.playing)).toBe(false)
+
+      director.toPlayer.mock.lastCall[0]()
+
+      expect(world.lastHud().playing).toBe(true)
+    })
+
+    it('keeps input muted when toTitle comes before the glide lands', () => {
+      const director = fakeDirector()
+      const world = track(start({ director }))
+      world.engine.setActive(true)
+      world.engine.play(() => {})
+      expect(lockedElement).toBe(world.canvas)
+      world.engine.toTitle()
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit4', bubbles: true }))
+
+      expect(director.toOrbit).toHaveBeenCalledTimes(1)
+      expect(world.hud.mock.calls.some(([hud]) => hud.playing)).toBe(false)
+      expect(world.lastHud().selected).toBe(0)
+    })
+
+    it('sends the camera back to orbit on toTitle without touching input', () => {
+      const director = fakeDirector()
+      const world = track(start({ director }))
+      world.engine.setActive(true)
+      world.engine.play(() => {})
+      director.toPlayer.mock.lastCall[0]()
+      const emitted = world.hud.mock.calls.length
+      world.engine.toTitle()
+
+      expect(director.toOrbit).toHaveBeenCalledTimes(1)
+      expect(world.hud.mock.calls).toHaveLength(emitted)
+      expect(world.lastHud().playing).toBe(true)
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit4', bubbles: true }))
+      expect(world.lastHud().selected).toBe(3)
+    })
+  })
 })
