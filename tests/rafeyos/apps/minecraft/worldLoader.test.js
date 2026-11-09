@@ -48,6 +48,19 @@ describe('loading the world', () => {
     expect(chunkArrays.get('0,0')).toEqual({ solid: message.chunks[0].solid, water: message.chunks[0].water })
   })
 
+  it('passes the worker\'s progress on and keeps waiting for the world', async () => {
+    const worker = fakeWorker()
+    const onProgress = vi.fn()
+    const { promise } = loadWorld({ edits: [], createWorker: () => worker, onProgress })
+    worker.fire('message', { data: { type: 'progress', done: 16, total: 1024 } })
+
+    expect(onProgress).toHaveBeenCalledWith(16, 1024)
+    expect(worker.terminate).not.toHaveBeenCalled()
+    expect(await stateOf(promise)).toBe(PENDING)
+    worker.fire('message', { data: { type: 'world', ...builtWorld() } })
+    expect((await promise).chunkArrays.has('0,0')).toBe(true)
+  })
+
   it('starts the worker from its own module', () => {
     const worker = fakeWorker()
     const Worker = vi.fn(function Worker() {
@@ -132,6 +145,16 @@ describe('cancelling a load', () => {
 
     expect(build).not.toHaveBeenCalled()
     expect(await stateOf(promise)).toBe(PENDING)
+  })
+
+  it('ignores progress that arrives after it', () => {
+    const worker = fakeWorker()
+    const onProgress = vi.fn()
+    const { cancel } = loadWorld({ edits: [], createWorker: () => worker, onProgress })
+    cancel()
+    worker.fire('message', { data: { type: 'progress', done: 16, total: 1024 } })
+
+    expect(onProgress).not.toHaveBeenCalled()
   })
 
   it('stops the worker, and ignores an answer already on its way', async () => {

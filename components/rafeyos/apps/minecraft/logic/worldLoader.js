@@ -40,10 +40,14 @@ const startWorker = (createWorker) => {
  *   createWorker?: () => Worker | null,
  *   schedule?: (run: () => void) => unknown,
  *   build?: typeof buildWorld,
- * }} options - `edits`: the saved ones, meshed in so saved builds show from the first frame
+ *   onProgress?: (done: number, total: number) => void,
+ * }} options - `edits`: the saved ones, meshed in so saved builds show from the first frame; `onProgress`: chunks
+ *   meshed so far, from the worker only (a main-thread build blocks, so there's nothing to report until it's done)
  * @returns {{ promise: Promise<LoadedWorld>, cancel: () => void }} a cancelled load never settles
  */
-export const loadWorld = ({ edits, createWorker = defaultCreateWorker, schedule = afterPaint, build = buildWorld }) => {
+export const loadWorld = ({
+  edits, createWorker = defaultCreateWorker, schedule = afterPaint, build = buildWorld, onProgress = () => {},
+}) => {
   let cancelled = false
   const worker = startWorker(createWorker)
   /** @type {Promise<LoadedWorld>} */
@@ -62,6 +66,10 @@ export const loadWorld = ({ edits, createWorker = defaultCreateWorker, schedule 
       return
     }
     worker.addEventListener('message', (event) => {
+      if (event.data.type === 'progress') {
+        if (!cancelled) onProgress(event.data.done, event.data.total)
+        return
+      }
       worker.terminate()
       if (!cancelled) resolve(unpackWorld(event.data))
     })

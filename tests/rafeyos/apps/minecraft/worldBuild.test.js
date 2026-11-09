@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
 import { WORLD, voxelIndex } from '@/components/rafeyos/apps/minecraft/logic/terrain'
 import { createWorld } from '@/components/rafeyos/apps/minecraft/logic/world'
@@ -17,14 +17,24 @@ describe('building the real world', () => {
   const skyIndex = voxelIndex(...SKY)
   let sent
   let received
+  let progress
+  let worldPosts
 
   // The whole 512² world, generated and meshed once for this block, the way the worker does it
   beforeAll(() => {
-    handleBuildMessage({ edits: [[skyIndex, BLOCK.BRICK]] }, (message, transfer) => {
-      sent = { message, transfer }
-      received = post(sent)
-    })
+    const posts = []
+    handleBuildMessage({ edits: [[skyIndex, BLOCK.BRICK]] }, (message, transfer) => posts.push({ message, transfer }))
+    sent = posts.find(({ message }) => message.type === 'world')
+    received = post(sent)
+    progress = posts.filter(({ message }) => message.type === 'progress')
+    worldPosts = posts.filter(({ message }) => message.type === 'world')
   }, 60000)
+
+  it('reports progress every 16 chunks with nothing to transfer, then posts the world once', () => {
+    expect(progress.map(({ message }) => message.done)).toEqual(Array.from({ length: 64 }, (_, i) => (i + 1) * 16))
+    expect(progress.every(({ message, transfer }) => message.total === 1024 && transfer.length === 0)).toBe(true)
+    expect(worldPosts).toHaveLength(1)
+  })
 
   it('meshes all 1,024 chunks, each with a bounding sphere in plain numbers', () => {
     const { chunks } = received
@@ -103,6 +113,15 @@ describe('building with a stand-in generator and mesher', () => {
     expect(built === island).toBe(true)
     expect(chunks.length).toBe(1024)
     expect(chunks[33]).toMatchObject({ cx: 1, cz: 1 })
+  })
+
+  it('reports the chunks done so far, out of 1,024, every 16 chunks', () => {
+    const onProgress = vi.fn()
+    buildWorld({ edits: [], generate, mesh, onProgress })
+
+    expect(onProgress).toHaveBeenCalledTimes(64)
+    expect(onProgress.mock.calls[0]).toEqual([16, 1024])
+    expect(onProgress.mock.calls[63]).toEqual([1024, 1024])
   })
 
   it('lists a buffer once even when chunks share it, since postMessage throws on a repeat', () => {
