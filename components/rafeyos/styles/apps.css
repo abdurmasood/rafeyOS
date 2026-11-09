@@ -203,6 +203,7 @@
 :where(.rafeyos) .bk-name { position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); font-weight: 500; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.55); opacity: 0; transition: opacity .25s; pointer-events: none; }
 :where(.rafeyos) .bk-name.on { opacity: 1; }
 :where(.rafeyos) .bk-cover { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(14,14,18,.38); cursor: pointer; }
+:where(.rafeyos) .bk-cover.bk-still { cursor: default; }
 :where(.rafeyos) .bk-card { display: grid; gap: 14px; padding: 20px 24px; border-radius: 14px; max-width: calc(100% - 48px); color: #fff; background: var(--glass); box-shadow: inset 0 0 0 1px var(--glass-edge), 0 16px 40px rgba(0,0,0,.4); -webkit-backdrop-filter: blur(28px) saturate(1.7); backdrop-filter: blur(28px) saturate(1.7); }
 :where(.rafeyos) .bk-card h2 { margin: 0; font-size: 18px; font-weight: 500; }
 :where(.rafeyos) .bk-card p { margin: 0; color: rgba(255,255,255,.72); max-width: 34ch; }
