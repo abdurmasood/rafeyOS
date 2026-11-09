@@ -9,6 +9,8 @@ export const PLAYER = Object.freeze({
   WALK: 4.3, SPRINT: 5.7, GRAVITY: 28, JUMP: 8.6,
   LOOK_SPEED: 0.0024, MAX_PITCH: 1.55,
 })
+// Climbing out of water: up speed matches swimming up, and the lip push carries the player over the top edge
+export const CLIMB = Object.freeze({ SPEED: 3.4, LIP_UP: 2.2, LIP_FORWARD: 2.6, PROBE: 0.08 })
 // How far one substep may move, so a fast fall can't pass through a block
 const MAX_STEP = 0.35
 const SKIN = 1e-4
@@ -18,7 +20,7 @@ const EDGE = 1e-6
  * @import { World } from './world'
  * @import { Spawn } from './terrain'
  * @typedef {{ x: number, y: number, z: number }} Vec
- * @typedef {{ pos: Vec, vel: Vec, yaw: number, pitch: number, onGround: boolean }} Player
+ * @typedef {{ pos: Vec, vel: Vec, yaw: number, pitch: number, onGround: boolean, climbing: boolean }} Player
  * @typedef {{ forward: number, strafe: number, jump: boolean, sprint: boolean }} MoveInput - forward/strafe in -1..1
  */
 
@@ -27,12 +29,12 @@ const EDGE = 1e-6
  * @returns {Player}
  */
 export const createPlayer = (spawn) => ({
-  pos: { x: spawn.x, y: spawn.y, z: spawn.z }, vel: { x: 0, y: 0, z: 0 }, yaw: spawn.yaw, pitch: spawn.pitch, onGround: false,
+  pos: { x: spawn.x, y: spawn.y, z: spawn.z }, vel: { x: 0, y: 0, z: 0 }, yaw: spawn.yaw, pitch: spawn.pitch, onGround: false, climbing: false,
 })
 
 /**
  * The first solid block the player's box overlaps, as [x, y, z], or null.
- * @param {Player} player
+ * @param {{ pos: Vec }} body
  * @param {World} world
  */
 const overlapsSolid = ({ pos }, world) => {
@@ -80,6 +82,43 @@ export const isSwimming = ({ pos }, world) =>
   world.get(Math.floor(pos.x), Math.floor(pos.y + 0.4), Math.floor(pos.z)) === BLOCK.WATER
 
 /**
+ * Whether the body, nudged a hair toward where the player is steering, would touch a solid block: pushing into a bank.
+ * @param {Player} player
+ * @param {World} world
+ * @param {number} wishX - unit steer vector, or 0
+ * @param {number} wishZ
+ */
+const wallAhead = ({ pos }, world, wishX, wishZ) => {
+  if (wishX === 0 && wishZ === 0) return false
+  const probed = { pos: { x: pos.x + wishX * CLIMB.PROBE, y: pos.y, z: pos.z + wishZ * CLIMB.PROBE } }
+  return overlapsSolid(probed, world) !== null
+}
+
+/**
+ * Climbing out of the water: holding jump against a wall from the water keeps the player rising, even above the
+ * surface where swimming lift has stopped, until the top edge gives a small push onto the bank.
+ * @param {Player} player
+ * @param {World} world
+ * @param {MoveInput} input
+ * @param {{ x: number, z: number }} wish - unit steer vector, or 0 with no movement input
+ */
+const climbOut = (player, world, input, wish) => {
+  const { vel } = player
+  if (!input.jump || player.onGround) { player.climbing = false; return }
+  const wall = wallAhead(player, world, wish.x, wish.z)
+  if (!player.climbing && wall && isSwimming(player, world)) player.climbing = true
+  if (!player.climbing) return
+  if (wall) { vel.y = Math.max(vel.y, CLIMB.SPEED); return }
+  // No input means the player let go mid-wall: drop back rather than get pushed up the wall
+  if (wish.x !== 0 || wish.z !== 0) {
+    vel.y = Math.max(vel.y, CLIMB.LIP_UP)
+    vel.x = wish.x * CLIMB.LIP_FORWARD
+    vel.z = wish.z * CLIMB.LIP_FORWARD
+  }
+  player.climbing = false
+}
+
+/**
  * Turns input into velocity: quick to answer on the ground, loose in the air, slow and floaty in water.
  * @param {Player} player
  * @param {World} world
@@ -104,6 +143,7 @@ const steer = (player, world, input, dt) => {
     vel.y = Math.max(vel.y - PLAYER.GRAVITY * dt, -56)
     if (input.jump && player.onGround) vel.y = PLAYER.JUMP
   }
+  climbOut(player, world, input, { x: wishX, z: wishZ })
 }
 
 /**
