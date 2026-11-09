@@ -25,8 +25,11 @@ export const createMinecraftInput = ({ canvas, doc, win, now, on }) => {
   let drag = null
   let lastUnlock = -Infinity
   let wasPlaying = false
+  // Captured but muted: the mouse is taken, yet nothing reaches the game (the camera glide at the start)
+  let muted = false
 
-  const playing = () => active && (locked || (dragMode && dragEngaged))
+  const captured = () => active && (locked || (dragMode && dragEngaged))
+  const playing = () => captured() && !muted
   const notify = () => {
     if (playing() === wasPlaying) return
     wasPlaying = playing()
@@ -59,7 +62,8 @@ export const createMinecraftInput = ({ canvas, doc, win, now, on }) => {
 
   const handlers = createHandlers({ now, on, keys, held, state: {
     playing,
-    isLocked: () => locked && active,
+    isLocked: () => locked && active && !muted,
+    captured,
     isDragMode: () => dragMode,
     getDrag: () => drag,
     setDrag: (next) => { drag = next },
@@ -95,6 +99,12 @@ export const createMinecraftInput = ({ canvas, doc, win, now, on }) => {
   return Object.freeze({
     capture,
     isPlaying: playing,
+    /** @param {boolean} next - true holds every input back while the mouse stays captured */
+    setMuted: (next) => {
+      muted = next
+      if (muted) release()
+      notify()
+    },
     /** @param {boolean} next - false while another window, the overview or a menu has the keyboard */
     setActive: (next) => {
       active = next
@@ -167,12 +177,12 @@ const createHandlers = ({ now, on, keys, held, state }) => ({
     on.scroll(event.deltaY > 0 ? 1 : -1)
   },
   keyDown: (event) => {
-    if (!state.playing()) return
     // Esc gives the mouse back; under pointer lock the browser does that itself
-    if (event.code === 'Escape' && state.isDragMode()) {
+    if (event.code === 'Escape' && state.isDragMode() && state.captured()) {
       state.disengage()
       return
     }
+    if (!state.playing()) return
     if (event.code === 'Space' || event.code.startsWith('Arrow')) event.preventDefault()
     keys.add(event.code)
     const digit = /^Digit([1-9])$/.exec(event.code)

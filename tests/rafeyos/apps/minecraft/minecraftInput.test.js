@@ -228,4 +228,66 @@ describe('Minecraft input', () => {
     expect(on.select).not.toHaveBeenCalled()
     expect(document.exitPointerLock).toHaveBeenCalled()
   })
+
+  describe('while muted', () => {
+    const mutedCapture = (options) => {
+      current = setup(options)
+      current.input.setActive(true)
+      current.input.setMuted(true)
+      current.input.capture()
+      return current
+    }
+
+    it('lets no keys, look, wheel or clicks through while capturing', () => {
+      const { input, on, canvas } = mutedCapture()
+      key('keydown', 'KeyW')
+      key('keydown', 'Digit3')
+      mouse(document, 'mousemove', { movementX: 5, movementY: 5 })
+      mouse(canvas, 'mousedown', { button: 0 })
+      canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: 1, bubbles: true, cancelable: true }))
+
+      expect(input.moveInput().forward).toBe(0)
+      expect(on.select).not.toHaveBeenCalled()
+      expect(on.turn).not.toHaveBeenCalled()
+      expect(on.breakBlock).not.toHaveBeenCalled()
+      expect(on.scroll).not.toHaveBeenCalled()
+      expect(input.isPlaying()).toBe(false)
+    })
+
+    it('keeps a lock that is granted while muted', () => {
+      const { canvas } = mutedCapture()
+
+      expect(canvas.requestPointerLock).toHaveBeenCalled()
+      expect(lockedElement).toBe(canvas)
+      expect(document.exitPointerLock).not.toHaveBeenCalled()
+    })
+
+    it('starts playing and says so when unmuted', () => {
+      const { input, on } = mutedCapture()
+      expect(on.playingChanged).not.toHaveBeenCalledWith(true)
+
+      input.setMuted(false)
+
+      expect(input.isPlaying()).toBe(true)
+      expect(on.playingChanged).toHaveBeenLastCalledWith(true)
+    })
+
+    it('disengages on Esc in drag mode', () => {
+      const { input, on } = mutedCapture({ pointerLock: false })
+      key('keydown', 'Escape')
+      input.setMuted(false)
+
+      expect(input.isPlaying()).toBe(false)
+      expect(on.playingChanged).not.toHaveBeenCalledWith(true)
+    })
+
+    it('clears held keys when muting', () => {
+      const { input } = playing()
+      key('keydown', 'KeyW')
+
+      input.setMuted(true)
+
+      expect(input.moveInput().forward).toBe(0)
+    })
+  })
 })
