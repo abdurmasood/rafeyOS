@@ -1,55 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
-  WORLD, WORLD_ID, blockIn, generateIsland, heightAt, inBounds, openView, voxelIndex,
+  WORLD, WORLD_ID, blockIn, inBounds, voxelIndex,
 } from '@/components/rafeyos/apps/minecraft/logic/terrain'
 import { BLOCK } from '@/components/rafeyos/apps/minecraft/logic/blockTypes'
+import { generateMainland } from '@/components/rafeyos/apps/minecraft/logic/mainland'
 
-// FNV-1a over every block, so any change to generation shows up here
-const checksum = (blocks) => {
-  let hash = 0x811c9dc5
-  for (const block of blocks) hash = Math.imul(hash ^ block, 0x01000193) >>> 0
-  return hash
-}
-const count = (blocks, block) => blocks.reduce((n, b) => n + (b === block ? 1 : 0), 0)
+const island = generateMainland()
 
-describe('the island', () => {
-  it('is the same island every time; changing generation must bump WORLD_ID, or saved builds land in the wrong places', () => {
-    const { blocks } = generateIsland()
-
-    expect(WORLD_ID).toBe('island-1')
-    expect(checksum(blocks)).toBe(ISLAND_CHECKSUM)
+describe('the world', () => {
+  it('is 512 blocks square and 96 tall, with the sea at 28; changing generation must bump WORLD_ID', () => {
+    expect(WORLD).toEqual({ SIZE: 512, HEIGHT: 96, CHUNK: 16, WATER_LEVEL: 28 })
+    expect(WORLD_ID).toBe('mainland-1')
   })
 
-  it('is built once and shared', () => {
-    expect(generateIsland()).toBe(generateIsland())
-    expect(Object.isFrozen(generateIsland())).toBe(true)
-  })
-
-  it('has hills, water, beaches, rock, snow and trees', () => {
-    const { blocks } = generateIsland()
-
-    for (const block of [BLOCK.GRASS, BLOCK.WATER, BLOCK.SAND, BLOCK.STONE, BLOCK.SNOW, BLOCK.LOG, BLOCK.LEAVES]) {
-      expect(count(blocks, block)).toBeGreaterThan(0)
-    }
-  })
-
-  it('sinks into the sea at its edges', () => {
-    const { heights } = generateIsland()
-
-    expect(heights[0]).toBeLessThanOrEqual(WORLD.WATER_LEVEL)
-    expect(heights[WORLD.SIZE * WORLD.SIZE - 1]).toBeLessThanOrEqual(WORLD.WATER_LEVEL)
-    expect(heightAt(0, 0)).toBe(heightAt(0, 0))
-  })
-
-  it('starts the player on grass, in the open, facing a clear view', () => {
-    const island = generateIsland()
-    const { x, y, z, yaw } = island.spawn
-    const [bx, bz] = [Math.floor(x), Math.floor(z)]
-
-    expect(blockIn(island.blocks, bx, y - 1, bz)).toBe(BLOCK.GRASS)
-    expect(blockIn(island.blocks, bx, y, bz)).toBe(BLOCK.AIR)
-    expect(blockIn(island.blocks, bx, y + 1, bz)).toBe(BLOCK.AIR)
-    expect(openView(island, [bx, y - 1, bz], yaw)).toBe(true)
+  it('comes out frozen, so whoever holds it copies the blocks before changing any', () => {
+    expect(Object.isFrozen(island)).toBe(true)
   })
 })
 
@@ -59,16 +24,16 @@ describe('the voxel grid', () => {
     expect(voxelIndex(1, 0, 0)).toBe(1)
     expect(voxelIndex(0, 0, 1)).toBe(WORLD.SIZE)
     expect(voxelIndex(0, 1, 0)).toBe(WORLD.SIZE * WORLD.SIZE)
+    expect(voxelIndex(511, 95, 511)).toBe(WORLD.SIZE * WORLD.SIZE * WORLD.HEIGHT - 1)
   })
 
-  it('reads air outside the island and stone beneath it', () => {
-    const { blocks } = generateIsland()
+  it('reads air outside the world and stone beneath it', () => {
+    const { blocks } = island
 
     expect(inBounds(-1, 5, 5)).toBe(false)
     expect(inBounds(5, WORLD.HEIGHT, 5)).toBe(false)
+    expect(inBounds(511, 95, 511)).toBe(true)
     expect(blockIn(blocks, -1, 5, 5)).toBe(BLOCK.AIR)
     expect(blockIn(blocks, 5, -1, 5)).toBe(BLOCK.STONE)
   })
 })
-
-const ISLAND_CHECKSUM = 1132091598

@@ -1,6 +1,6 @@
 // @ts-check
-// Builds in the Minecraft app, saved to localStorage. Only the voxels that differ from the generated island are kept,
-// tagged with the island they belong to, so a save stays small and a changed island never inherits old edits.
+// Builds in the Minecraft app, saved to localStorage. Only the voxels that differ from the generated world are kept,
+// tagged with the world they belong to, so a save stays small and a changed world never inherits old edits.
 // A save from a newer build (an unknown version) is left alone: this tab loads nothing from it and never writes.
 import { localStorageOrNull } from '@/lib/browserStorage'
 
@@ -74,7 +74,7 @@ export const createMinecraftStore = ({ storage }) => {
 
   return Object.freeze({
     /**
-     * The saved edits for `world`; none when nothing is saved, it's another island's, or a newer build's.
+     * The saved edits for `world`; none when nothing is saved, it's another world's, or a newer build's.
      * @param {string} world
      */
     load: (world) => readDisk(world).edits,
