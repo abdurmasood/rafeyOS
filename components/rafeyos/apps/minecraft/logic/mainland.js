@@ -179,6 +179,23 @@ const pickPlayerSpawn = (grid, { owners, continent }) => {
  * The whole world: what stands in every cell, the ground height of every column, and where the player starts.
  * @returns {Readonly<{ blocks: Uint8Array, heights: Int16Array, spawn: { x: number, y: number, z: number, yaw: number, pitch: number } }>}
  */
+/** What `zoneAt` reads for a column the continent doesn't own: the sea, and the islands round it. */
+export const ISLE_ZONE = 'isle'
+
+/**
+ * The continent zone (continent.js ZONE) of a world column, or ISLE_ZONE where the continent isn't land. The world
+ * keeps no zone map once it's generated, so what lives in it asks here. Pure, but costs a few noise reads: cache it.
+ * @param {number} x
+ * @param {number} z
+ */
+export const zoneAt = (x, z) => {
+  const localX = x - OFFSET, localZ = z - OFFSET
+  const nearContinent = [localX, localZ].every((local) => local > -CONTINENT_MARGIN && local < CONTINENT.SIZE + CONTINENT_MARGIN)
+  if (!nearContinent) return ISLE_ZONE
+  const reading = continentAt(localX, localZ)
+  return reading.land > 0.02 ? reading.biome : ISLE_ZONE
+}
+
 export const generateMainland = () => {
   const grid = createGrid(SIZE, HEIGHT)
   const shape = shapeColumns()
