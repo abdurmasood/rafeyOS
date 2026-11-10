@@ -10,9 +10,12 @@ import { WORLD_ID } from './logic/terrain'
 import { useStartFlow } from './logic/useStartFlow'
 import { loadWorld } from './logic/worldLoader'
 import { WORLD_STATUS } from './logic/worldStatus'
+import { MAX_AIR, MAX_HEALTH } from './logic/life/vitals'
 import { MinecraftHud } from './MinecraftHud'
 
-const STARTING_HUD = Object.freeze({ playing: false, selected: 0, position: '' })
+const STARTING_HUD = Object.freeze({
+  playing: false, selected: 0, position: '', health: MAX_HEALTH, air: MAX_AIR, dead: false, cause: null,
+})
 
 /** Saves what's waiting when the page goes away or is hidden, since React cleanup doesn't run then. */
 const flushWhenLeaving = (doc, flush) => {
@@ -48,7 +51,7 @@ const startWorld = ({ host, store, reducedMotion, on }) => {
       // One per start: StrictMode's discarded first mount must not share an orbit clock with the real one
       const director = createStartDirector({ reducedMotion })
       engine = createMinecraftEngine({
-        host, island, chunkArrays, edits: queue.edits(), onHud: on.hud, onEdit: queue.record, director,
+        host, island, chunkArrays, edits: queue.edits(), onHud: on.hud, onEdit: queue.record, director, reducedMotion,
       })
     } catch (error) {
       console.error('Minecraft engine failed to start', error)
@@ -79,7 +82,7 @@ export const MinecraftScene = ({ active, paused }) => {
   const [saveFailure, setSaveFailure] = useState(null)
   const [problem, setProblem] = useState(null)
   const [progress, setProgress] = useState(null)
-  const flow = useStartFlow({ world, active, playing: hud.playing })
+  const flow = useStartFlow({ world, active, playing: hud.playing, dead: hud.dead })
   const { ready, reset } = flow
   const engine = world?.engine ?? null
 

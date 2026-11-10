@@ -1,12 +1,13 @@
 // The start flow around the world: loading, the orbiting title, the glide in after Play, then the game, with the pause
-// panel over a game that isn't being played and a Controls panel off the title or the pause panel
+// panel over a game that isn't being played, a Controls panel off the title or the pause panel, and the death panel
+// over a game the player has died in
 import { useCallback, useRef, useState } from 'react'
 
 export const STAGE = Object.freeze({ LOADING: 'loading', TITLE: 'title', ENTERING: 'entering', GAME: 'game' })
 export const PANEL = Object.freeze({ NONE: 'none', CONTROLS: 'controls' })
 
 /**
- * @typedef {{ play: (onArrive: () => void) => void, capture: () => void, toTitle: () => void }} FlowEngine
+ * @typedef {{ play: (onArrive: () => void) => void, capture: () => void, toTitle: () => void, respawn: () => void }} FlowEngine
  * @typedef {{ engine: FlowEngine, editCount: () => number }} StartedWorld
  */
 
@@ -14,9 +15,10 @@ export const PANEL = Object.freeze({ NONE: 'none', CONTROLS: 'controls' })
  * What the buttons do. Each checks the stage first, through `stageRef` since a double click or a repeating key calls
  * again before React re-renders, and because a button that kept focus as its surface hid must not act.
  */
-const flowActions = ({ world, stageRef, goTo, setPanel, setEditCount, notPlaying }) => {
+const flowActions = ({ world, stageRef, goTo, setPanel, setEditCount, notPlaying, dead }) => {
   const at = (stage) => Boolean(world) && stageRef.current === stage
-  const inPause = () => at(STAGE.GAME) && notPlaying
+  // Dead is its own surface: the pause panel's buttons, kept focused as it hid, mustn't act from under it
+  const inPause = () => at(STAGE.GAME) && notPlaying && !dead
   return {
     play: () => {
       if (!at(STAGE.TITLE)) return
@@ -42,14 +44,18 @@ const flowActions = ({ world, stageRef, goTo, setPanel, setEditCount, notPlaying
       if (at(STAGE.TITLE) || inPause()) setPanel(PANEL.CONTROLS)
     },
     closeControls: () => setPanel(PANEL.NONE),
+    // Runs inside the click, as taking the mouse back must
+    respawn: () => {
+      if (at(STAGE.GAME) && dead) world.engine.respawn()
+    },
   }
 }
 
 /**
- * @param {{ world: StartedWorld | null, active: boolean, playing: boolean }} options - `active`: the window has the
- *   keyboard; `playing`: the engine's HUD says input is live
+ * @param {{ world: StartedWorld | null, active: boolean, playing: boolean, dead?: boolean }} options - `active`: the
+ *   window has the keyboard; `playing`: the engine's HUD says input is live; `dead`: it says the player has died
  */
-export const useStartFlow = ({ world, active, playing }) => {
+export const useStartFlow = ({ world, active, playing, dead = false }) => {
   const [stage, setStage] = useState(STAGE.LOADING)
   const [panel, setPanel] = useState(PANEL.NONE)
   // Blocks changed, counted when the title last appeared rather than on every render of a game
@@ -71,6 +77,7 @@ export const useStartFlow = ({ world, active, playing }) => {
   }, [goTo])
 
   const notPlaying = !(active && playing)
-  const actions = flowActions({ world, stageRef, goTo, setPanel, setEditCount, notPlaying })
-  return { stage, panel, editCount, paused: stage === STAGE.GAME && notPlaying, ready, reset, ...actions }
+  const actions = flowActions({ world, stageRef, goTo, setPanel, setEditCount, notPlaying, dead })
+  const inGame = stage === STAGE.GAME
+  return { stage, panel, editCount, paused: inGame && notPlaying && !dead, dead: inGame && dead, ready, reset, ...actions }
 }

@@ -39,8 +39,9 @@ export const depthBelowSurface = (world, eye) => {
 /**
  * Sets fog and sky for a camera at `eye`, from clear air to the deep look by depth (HAZE_DEPTH). The sky's horizon is
  * always the fog's colour, so terrain fading into the fog melts into the sky behind it. Runs every frame, so it lerps
- * into the fog's and sky's own Colors in place; view.horizon and view.zenith are the dry-air colours it starts from,
- * never written. Leaves the haze (0..1) in view.haze for the wash over the canvas.
+ * into the fog's and sky's own Colors in place. It starts from view.horizon, view.zenith and view.underwater, the
+ * colours for the time of day, and view.glow, the sun's strength (1 when unset); the sky clock writes those each frame
+ * before this runs, and this never does. Leaves the haze (0..1) in view.haze for the wash over the canvas.
  */
 export const setAtmosphereAt = (view, world, eye) => {
   // A square root, so the water shows within the first block of a dive yet still starts from exactly air
@@ -52,7 +53,7 @@ export const setAtmosphereAt = (view, world, eye) => {
   fog.far = lerp(FOG.far, FOG.deepFar, haze)
   horizon.value.copy(fog.color)
   zenith.value.copy(view.zenith).lerp(view.underwater, haze)
-  glow.value = 1 - SUN_FADE * haze
+  glow.value = (view.glow ?? 1) * (1 - SUN_FADE * haze)
   view.haze = haze
 }
 

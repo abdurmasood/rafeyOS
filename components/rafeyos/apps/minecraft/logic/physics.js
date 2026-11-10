@@ -33,6 +33,14 @@ export const createPlayer = (spawn) => ({
 })
 
 /**
+ * Past the world's edge the player meets an invisible wall: out there is air down to a stone floor at y 0, a drop that
+ * falling would turn into a death.
+ * @param {number} x
+ * @param {number} z
+ */
+const pastEdge = (x, z) => x < 0 || z < 0 || x >= WORLD.SIZE || z >= WORLD.SIZE
+
+/**
  * The first solid block the player's box overlaps, as [x, y, z], or null.
  * @param {{ pos: Vec }} body
  * @param {World} world
@@ -42,7 +50,7 @@ const overlapsSolid = ({ pos }, world) => {
   for (let y = Math.floor(pos.y); y <= Math.floor(pos.y + BODY - EDGE); y++) {
     for (let z = Math.floor(pos.z - HALF_WIDTH); z <= Math.floor(pos.z + HALF_WIDTH - EDGE); z++) {
       for (let x = Math.floor(pos.x - HALF_WIDTH); x <= Math.floor(pos.x + HALF_WIDTH - EDGE); x++) {
-        if (isSolid(world.get(x, y, z))) return [x, y, z]
+        if (pastEdge(x, z) || isSolid(world.get(x, y, z))) return [x, y, z]
       }
     }
   }

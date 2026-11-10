@@ -6,7 +6,7 @@ import { PANEL, STAGE, useStartFlow } from '@/components/rafeyos/apps/minecraft/
 afterEach(cleanup)
 
 const fakeWorld = (editCount = 0) => ({
-  engine: { play: vi.fn(), capture: vi.fn(), toTitle: vi.fn() },
+  engine: { play: vi.fn(), capture: vi.fn(), toTitle: vi.fn(), respawn: vi.fn() },
   editCount: vi.fn(() => editCount),
 })
 
@@ -178,5 +178,52 @@ describe('useStartFlow', () => {
     act(() => flow().openControls())
     act(() => flow().reset())
     expect(flow()).toMatchObject({ stage: STAGE.LOADING, panel: PANEL.NONE })
+  })
+
+  describe('after dying in the game', () => {
+    const inGameDead = () => {
+      const view = onTitle()
+      act(() => view.flow().play())
+      arrive(view.world)
+      view.rerender({ world: view.world, active: true, playing: false, dead: true })
+      return view
+    }
+
+    it('shows the death, not the pause panel, though the mouse is free', () => {
+      const { flow } = inGameDead()
+
+      expect(flow().dead).toBe(true)
+      expect(flow().paused).toBe(false)
+    })
+
+    it('respawns from the death panel', () => {
+      const { world, flow } = inGameDead()
+
+      act(() => flow().respawn())
+
+      expect(world.engine.respawn).toHaveBeenCalledTimes(1)
+    })
+
+    it("won't resume, open Controls or go back to the title from under it", () => {
+      const { world, flow } = inGameDead()
+
+      act(() => {
+        flow().resume()
+        flow().openControls()
+        flow().backToTitle()
+      })
+
+      expect(world.engine.capture).not.toHaveBeenCalled()
+      expect(world.engine.toTitle).not.toHaveBeenCalled()
+      expect(flow().panel).toBe(PANEL.NONE)
+    })
+
+    it('ignores Respawn while alive', () => {
+      const { world, flow } = onTitle()
+
+      act(() => flow().respawn())
+
+      expect(world.engine.respawn).not.toHaveBeenCalled()
+    })
   })
 })

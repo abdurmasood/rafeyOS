@@ -16,7 +16,9 @@ export const fakeEngineModule = () => {
   return { WebGLUnavailableError, createMinecraftEngine: (options) => {
     if (engines.fail === 'webgl') throw new WebGLUnavailableError('no WebGL')
     if (engines.fail === 'other') throw new Error('boom')
-    const engine = { options, setActive: vi.fn(), setPaused: vi.fn(), capture: vi.fn(), play: vi.fn(), toTitle: vi.fn(), dispose: vi.fn() }
+    const engine = {
+      options, setActive: vi.fn(), setPaused: vi.fn(), capture: vi.fn(), play: vi.fn(), toTitle: vi.fn(), respawn: vi.fn(), dispose: vi.fn(),
+    }
     engines.made.push(engine)
     return engine
   } }

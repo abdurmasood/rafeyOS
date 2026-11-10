@@ -1,9 +1,9 @@
 // The Minecraft world on screen: the three.js scene (sky, fog, chunk meshes, the outline on the aimed-at block), the
 // frame loop, and the window it lives in. The renderer and frame scheduler are injected, so tests run it without WebGL.
 import {
-  BackSide, BoxGeometry, BufferAttribute, BufferGeometry, Color, DataTexture, EdgesGeometry, Fog, LineBasicMaterial,
+  BoxGeometry, BufferAttribute, BufferGeometry, Color, DataTexture, EdgesGeometry, Fog, LineBasicMaterial,
   LineSegments, Mesh, MeshBasicMaterial, NearestFilter, NearestMipmapLinearFilter, PerspectiveCamera, RGBAFormat,
-  RepeatWrapping, SRGBColorSpace, Scene, ShaderChunk, ShaderMaterial, Sphere, SphereGeometry, Vector3, WebGLRenderer,
+  RepeatWrapping, SRGBColorSpace, Scene, ShaderChunk, Sphere, Vector3, WebGLRenderer,
 } from 'three'
 import { BLOCK, HOTBAR, TILE, isSolid } from './blockTypes'
 import { ATLAS, flipRows, paintAtlas, tilePixels } from './texturePixels'
@@ -11,33 +11,23 @@ import { mipChain } from './mipmaps'
 import { WORLD, inBounds } from './terrain'
 import { chunksTouching, createWorld } from './world'
 import { meshChunk } from './mesher'
-import { createPlayer, eyePosition, liftClear, lookDirection, overlapsBlock, stepPlayer, turn } from './physics'
+import { createPlayer, eyePosition, isSwimming, liftClear, lookDirection, overlapsBlock, stepPlayer, turn } from './physics'
 import { castRay } from './raycast'
 import { createMinecraftInput } from './minecraftInput'
 import { IDLE_DIRECTOR, applyShot, startPlaying } from './directorShot'
-import { FOG, SKY, seeWaterFromBelow, setAtmosphereAt } from './atmosphere'
+import { FOG, SKY, depthBelowSurface, seeWaterFromBelow, setAtmosphereAt } from './atmosphere'
+import { createSkyDome } from './skyDome'
+import { createHud } from './engineHud'
+import { createLoop } from './frameLoop'
+import { CAUSE, VITALS, createVitals, hurt, resetVitals, stepVitals } from './life/vitals'
+import { SHADES } from './life/shades'
+import { createLife } from './life/life'
 
 // Fog and the far plane both measure view-space depth, so ending the view just past full fog cuts off nothing visible
 const CAMERA_FAR = FOG.far + 8
 const FALL_LIMIT = -20
-const HUD_INTERVAL = 100
-// Longest frame the physics will take in one go, so a stall can't fling the player through the world
-const MAX_FRAME = 0.05
-const COMPASS = Object.freeze(['N', 'W', 'S', 'E'])
 // The blue wash over the world at full haze, and the smallest change in it worth a style write
 const WASH = Object.freeze({ opacity: 0.22, step: 0.005 })
-
-const SKY_VERTEX = 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'
-const SKY_FRAGMENT = `
-  uniform vec3 horizon; uniform vec3 zenith; uniform vec3 sun; uniform float glow; varying vec3 vDir;
-  void main() {
-    vec3 dir = normalize(vDir);
-    vec3 color = mix(horizon, zenith, pow(clamp(dir.y * 1.5, 0.0, 1.0), 0.75));
-    float toward = max(dot(dir, sun), 0.0);
-    color += vec3(1.0, 0.93, 0.78) * (pow(toward, 900.0) * 1.6 + pow(toward, 12.0) * 0.12) * glow;
-    gl_FragColor = vec4(color, 1.0);
-    #include <colorspace_fragment>
-  }`
 
 const defaultRenderer = (canvas) => new WebGLRenderer({ canvas, antialias: true })
 
@@ -95,17 +85,7 @@ const createView = () => {
   scene.fog = new Fog(horizon.clone(), FOG.near, FOG.far)
   const camera = new PerspectiveCamera(72, 1, 0.05, CAMERA_FAR)
   camera.rotation.order = 'YXZ'
-  // Inside the far plane, or the dome itself would be clipped away
-  const sky = new Mesh(new SphereGeometry(FOG.far, 32, 16), new ShaderMaterial({
-    side: BackSide, depthWrite: false, fog: false, vertexShader: SKY_VERTEX, fragmentShader: SKY_FRAGMENT,
-    // Their own Colors: setAtmosphereAt rewrites these in place, and view.horizon is also the fog's dry-air colour
-    uniforms: {
-      horizon: { value: new Color(SKY.horizon) }, zenith: { value: new Color(SKY.zenith) },
-      sun: { value: new Vector3(0.45, 0.55, -0.7).normalize() }, glow: { value: 1 },
-    },
-  }))
-  // The dome (radius FOG.far) is now nearer than some terrain, so sorting behind by material id alone isn't enough
-  sky.renderOrder = -1
+  const sky = createSkyDome()
   const textures = createTextures()
   const materials = {
     solid: new MeshBasicMaterial({ map: textures.blocks, vertexColors: true }),
@@ -216,11 +196,12 @@ const createChunks = (scene, world, materials, chunkArrays) => {
 }
 
 /** Breaking and placing at whatever the crosshair points at. */
-const createEditor = ({ world, player, chunks, getTarget, getSelected, onEdit }) => {
+const createEditor = ({ world, player, chunks, life, getTarget, getSelected, onEdit }) => {
   const change = (x, y, z, block) => {
     const edit = world.set(x, y, z, block)
     if (!edit) return
     chunksTouching(x, z).forEach(([cx, cz]) => chunks.rebuild(cx, cz))
+    life.blockChanged(x, z)
     onEdit(edit)
   }
   return {
@@ -236,11 +217,6 @@ const createEditor = ({ world, player, chunks, getTarget, getSelected, onEdit })
       change(x, y, z, HOTBAR[getSelected()].block)
     },
   }
-}
-
-const positionText = ({ pos, yaw }) => {
-  const heading = COMPASS[((Math.round(yaw / (Math.PI / 2)) % 4) + 4) % 4]
-  return `x ${pos.x.toFixed(1)} · y ${pos.y.toFixed(1)} · z ${pos.z.toFixed(1)} · ${heading}`
 }
 
 /** Points the camera from the player's eyes, finds the aimed-at block, and sets fog and sky for the eyes' depth. */
@@ -292,32 +268,24 @@ const drawFrame = ({ renderer, view, chunks, wash }) => {
   chunks.warm()
   renderer.setClearColor(view.scene.fog.color)
   renderer.render(view.scene, view.camera)
-  wash.show(view.haze)
+  // Dimmed with the light, or the sea would glow blue on a moonless night
+  wash.show(view.haze * (view.daylight ?? 1))
 }
 
-/** HUD state, sent whole to `onHud` on every change; the position at most every HUD_INTERVAL ms. */
-const createHud = (onHud, player) => {
-  const hud = { playing: false, selected: 0, position: positionText(player) }
-  let positionAt = -Infinity
-  const emit = (patch) => {
-    Object.assign(hud, patch)
-    onHud({ ...hud })
-  }
-  return {
-    emit,
-    selected: () => hud.selected,
-    select: (slot) => {
-      const next = ((slot % HOTBAR.length) + HOTBAR.length) % HOTBAR.length
-      if (next !== hud.selected) emit({ selected: next })
-    },
-    /** @param {number} time */
-    track: (time) => {
-      if (time - positionAt < HUD_INTERVAL) return
-      positionAt = time
-      const position = positionText(player)
-      if (position !== hud.position) emit({ position })
-    },
-  }
+/**
+ * What the vitals need from a frame: the feet, whether standing, swimming, or with the eyes under the water's surface,
+ * and whether the game has the mouse.
+ */
+const sampleVitals = (player, world, playing) => ({
+  y: player.pos.y, onGround: player.onGround, inWater: isSwimming(player, world),
+  headUnder: depthBelowSurface(world, eyePosition(player)) > 0, playing,
+})
+
+/** The HUD patch for input going live or not; going live after a Respawn press is what clears the death panel. */
+const playingPatch = (playing, death) => {
+  if (!playing || !death.respawning) return { playing }
+  death.respawning = false
+  return { playing, dead: false, cause: null }
 }
 
 /** The browser can't make a WebGL context; the scene shows its "can't start" card for this and only this. */
@@ -373,7 +341,7 @@ const createWash = (host, doc) => {
  *   host: HTMLElement, island: import('./terrain').Island,
  *   chunkArrays: Map<string, { solid: import('./mesher').MeshArrays, water: import('./mesher').MeshArrays }>,
  *   edits?: ReadonlyArray<[number, number]>,
- *   onHud?: (hud: { playing: boolean, selected: number, position: string }) => void,
+ *   onHud?: (hud: import('./engineHud').HudState) => void,
  *   onEdit?: (change: [number, number | null]) => void,
  *   createRenderer?: (canvas: HTMLCanvasElement) => object,
  *   requestFrame?: (run: (time: number) => void) => number, cancelFrame?: (id: number) => void,
@@ -381,10 +349,13 @@ const createWash = (host, doc) => {
  *   director?: { frame: (view: { dt: number, eye: { x: number, y: number, z: number }, yaw: number, pitch: number }) =>
  *     null | { camera?: { x: number, y: number, z: number, yaw: number, pitch: number }, fogLift?: number },
  *     toPlayer: (onArrive: () => void) => void, toOrbit: () => void },
+ *   startTime?: number, reducedMotion?: boolean,
  * }} options - `island` and `chunkArrays` come from the world loader (worldLoader.js), the chunks meshed with the
  *   same `edits`. The voxels are copied into a world of the engine's own: physics, aiming and edits read them here.
  *   `chunkArrays` is consumed: the engine empties the map once its first meshes are built, so don't reuse it.
- * @returns {{ setActive: (active: boolean) => void, setPaused: (paused: boolean) => void, capture: () => void, play: (onArrive: () => void) => void, toTitle: () => void, dispose: () => void }}
+ *   `startTime`: the time of day to start at, a fraction from midnight (skyClock.js); 08:00 when left out.
+ *   `reducedMotion`: the world's own motion (wind, water, clouds, fireflies, the walking bob) holds still.
+ * @returns {{ setActive: (active: boolean) => void, setPaused: (paused: boolean) => void, capture: () => void, play: (onArrive: () => void) => void, toTitle: () => void, respawn: () => void, dispose: () => void }}
  * @throws {WebGLUnavailableError} when the browser can't make a WebGL context; anything else thrown while building
  *   comes after the canvas and renderer went again, so nothing is left behind
  */
@@ -413,7 +384,7 @@ export const createMinecraftEngine = (options) => {
 const assembleEngine = ({
   host, island, chunkArrays, edits = [], onHud = () => {}, onEdit = () => {}, canvas, renderer,
   requestFrame = (run) => requestAnimationFrame(run), cancelFrame = (id) => cancelAnimationFrame(id),
-  now = () => performance.now(), doc, win, director = IDLE_DIRECTOR,
+  now = () => performance.now(), doc, win, director = IDLE_DIRECTOR, startTime, reducedMotion = false,
 }, releases, release) => {
   const world = createWorld(island, edits)
   const player = liftClear(createPlayer(island.spawn), world)
@@ -422,27 +393,71 @@ const assembleEngine = ({
   releases.push(view.dispose, wash.remove)
   const chunks = createChunks(view.scene, world, view.materials, chunkArrays)
   releases.push(chunks.dispose)
+  const life = createLife({ view, world, startTime, reducedMotion, onBite: (shade) => bitten(shade) })
+  releases.push(life.dispose)
   const shotFog = { clear: FOG, setAt: (eye) => setAtmosphereAt(view, world, eye) }
   const hud = createHud(onHud, player)
   let target = null
-  const editor = createEditor({ world, player, chunks, getTarget: () => target, getSelected: hud.selected, onEdit })
+  const editor = createEditor({ world, player, chunks, life, getTarget: () => target, getSelected: hud.selected, onEdit })
+  const vitals = createVitals()
+  const death = { respawning: false }
   const input = createMinecraftInput({ canvas, doc, win, now, on: {
     turn: (dx, dy) => turn(player, dx, dy),
-    breakBlock: editor.breakBlock,
+    breakBlock: () => {
+      if (!life.hitShade({ eye: eyePosition(player), look: lookDirection(player), target })) editor.breakBlock()
+    },
     placeBlock: editor.placeBlock,
     select: hud.select,
     scroll: (step) => hud.select(hud.selected() + step),
-    playingChanged: (playing) => hud.emit({ playing }),
+    playingChanged: (playing) => hud.emit(playingPatch(playing, death)),
   } })
   releases.push(input.dispose)
   releases.push(...[watchSize({ host, win, renderer, camera: view.camera }), watchContextRestore(canvas, chunks)])
+  // Back to the spawn point, standing clear of anything built on it, with no fall counting toward the landing
+  const respawnPlayer = () => {
+    Object.assign(player, liftClear(createPlayer(island.spawn), world))
+    vitals.peakY = null
+  }
+  // The death panel first, then the mouse let go: told the other way round, the pause panel would flash up between
+  const die = () => {
+    hud.emit({ dead: true, cause: vitals.cause, health: 0 })
+    input.setMuted(true)
+    if (doc.pointerLockElement === canvas) doc.exitPointerLock?.()
+  }
+  // A shade's bite: a heart and a half, and a shove away from it
+  const bitten = (shade) => {
+    const away = Math.atan2(player.pos.x - shade.x, player.pos.z - shade.z)
+    player.vel.x += Math.sin(away) * 6
+    player.vel.z += Math.cos(away) * 6
+    player.vel.y = 5
+    if (hurt(vitals, SHADES.BITE, { kind: CAUSE.SHADE }).some((event) => event.type === 'dead')) die()
+  }
+  const respawn = () => {
+    if (!hud.isDead()) return
+    if (!death.respawning) {
+      if (vitals.deadFor < VITALS.RESPAWN_DELAY) return
+      respawnPlayer()
+      resetVitals(vitals)
+      life.respawned()
+      hud.vitals(vitals)
+      death.respawning = true
+    }
+    // Safe to press again: if the browser refused the mouse, the death panel stays and this asks once more
+    input.setMuted(false)
+    input.capture()
+  }
   const loop = createLoop({ requestFrame, cancelFrame, now, step: (time, dt) => {
     stepPlayer(player, world, input.moveInput(), dt)
-    if (player.pos.y < FALL_LIMIT) Object.assign(player, liftClear(createPlayer(island.spawn), world))
+    if (player.pos.y < FALL_LIMIT) respawnPlayer()
+    const events = stepVitals(vitals, sampleVitals(player, world, input.isPlaying()), dt)
+    if (events.some((event) => event.type === 'dead')) die()
+    hud.vitals(vitals)
+    life.beforeView(dt, { player, playing: input.isPlaying(), eye: eyePosition(player), swimming: isSwimming(player, world) })
     input.tick(time)
     target = updateView(view, world, player)
     const shot = director.frame({ dt, eye: eyePosition(player), yaw: player.yaw, pitch: player.pitch })
     if (shot) applyShot(view, shot, shotFog)
+    life.afterView(dt, { shot, player, playing: input.isPlaying() })
     drawFrame({ renderer, view, chunks, wash })
     hud.track(time)
   } })
@@ -456,34 +471,7 @@ const assembleEngine = ({
     capture: () => input.capture(),
     play: (onArrive) => startPlaying({ input, director }, onArrive),
     toTitle: () => director.toOrbit(),
+    respawn,
     dispose: release,
   })
-}
-
-/**
- * The frame loop: `step(time, dt)` once per frame. Stopping cancels the next frame; starting again resets the clock,
- * so coming back from a minimized window isn't one giant frame.
- */
-const createLoop = ({ requestFrame, cancelFrame, now, step }) => {
-  let frameId = null
-  let last = 0
-  const frame = (time) => {
-    frameId = null
-    const dt = Math.min(MAX_FRAME, Math.max(0, (time - last) / 1000))
-    last = time
-    step(time, dt)
-    frameId = requestFrame(frame)
-  }
-  return {
-    start: () => {
-      if (frameId !== null) return
-      last = now()
-      frameId = requestFrame(frame)
-    },
-    stop: () => {
-      if (frameId === null) return
-      cancelFrame(frameId)
-      frameId = null
-    },
-  }
 }

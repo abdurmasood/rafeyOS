@@ -1,13 +1,14 @@
 // What Minecraft draws over the world: the blackout it fades in from, the title over its scrim, the HUD (crosshair,
-// position, hotbar, the picked block's name), a note when a build couldn't be saved, the pause and controls panels,
-// and the cards that explain why the world can't show
+// position, hearts and air, hotbar, the picked block's name), a note when a build couldn't be saved, the pause,
+// controls and death panels, and the cards that explain why the world can't show
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { HOTBAR } from './logic/blockTypes'
 import { ICON_SIZE, atlasCanvas, drawBlockIcon } from './logic/blockIcons'
 import { paintAtlas } from './logic/texturePixels'
 import { PANEL, STAGE } from './logic/useStartFlow'
 import { WORLD_STATUS } from './logic/worldStatus'
-import { ControlsPanel, PausePanel, SHAPING_STATUS, TitleActions, TitleBlock } from './MinecraftMenus'
+import { ControlsPanel, DeathPanel, PausePanel, SHAPING_STATUS, TitleActions, TitleBlock } from './MinecraftMenus'
+import { Vitals } from './MinecraftVitals'
 
 const NAME_SHOWN_FOR = 1200
 
@@ -82,14 +83,17 @@ const useLifted = (ready) => {
   return lifted
 }
 
-// Where focus goes when a surface takes over: its first button (Play, Resume, Back)
-const FIRST_BUTTON = Object.freeze({ title: '.bk-title .btn', pause: '.bk-pause .btn', controls: '.bk-controls .btn' })
+// Where focus goes when a surface takes over: its first button (Play, Resume, Back, Respawn)
+const FIRST_BUTTON = Object.freeze({
+  title: '.bk-title .btn', pause: '.bk-pause .btn', controls: '.bk-controls .btn', dead: '.bk-death .btn',
+})
 
-/** The surface that takes the keyboard: the title, the pause panel or Controls; null while loading or in play. */
+/** The surface that takes the keyboard: the title, the pause, death or controls panel; null while loading or in play. */
 const surfaceOf = (ready, flow) => {
   if (!ready) return null
   if (flow.panel === PANEL.CONTROLS) return 'controls'
   if (flow.stage === STAGE.TITLE) return 'title'
+  if (flow.dead) return 'dead'
   return flow.paused ? 'pause' : null
 }
 
@@ -97,9 +101,13 @@ const surfaceOf = (ready, flow) => {
  * Takes focus off a surface as it hides: to the first button of the surface replacing it, or nowhere once play takes
  * over. Left on a hidden button, Enter would still press it, and Chrome refuses the aria-hidden around it. Before
  * paint, so the hidden button never shows focused. Esc brings the pause panel up with nothing focused, so Resume
- * takes it then; not when leaving the window did, or it would pull the keyboard back from where the player went.
+ * takes it then, as Respawn does when dying lets go of the mouse; not when leaving the window did, or it would pull
+ * the keyboard back from where the player went.
+ * @param {string | null} surface
+ * @param {boolean} active
+ * @param {{ pause: import('react').RefObject<HTMLButtonElement>, dead: import('react').RefObject<HTMLButtonElement> }} refs
  */
-const useFocusHandoff = (surface, active, resumeRef) => {
+const useFocusHandoff = (surface, active, refs) => {
   // Read as the surface changes rather than watched: coming back to the window leaves focus where the click put it
   const activeRef = useRef(active)
   useLayoutEffect(() => {
@@ -112,10 +120,10 @@ const useFocusHandoff = (surface, active, resumeRef) => {
       const next = surface && hidden.parentElement.querySelector(FIRST_BUTTON[surface])
       if (next) next.focus()
       else focused.blur()
-    } else if (surface === 'pause' && activeRef.current) {
-      resumeRef.current.focus()
+    } else if (refs[surface] && activeRef.current) {
+      refs[surface].current.focus()
     }
-  }, [surface, resumeRef])
+  }, [surface, refs])
 }
 
 const StatusCard = ({ card }) => (
@@ -127,11 +135,12 @@ const StatusCard = ({ card }) => (
   </div>
 )
 
-/** Crosshair, position, hotbar and the picked block's name; faded out and hidden from readers off the game. */
+/** Crosshair, position, hearts, hotbar and the picked block's name; faded out and hidden from readers off the game. */
 const HudLayer = ({ hud, shown }) => {
   const named = useFlash(hud.selected, NAME_SHOWN_FOR)
   return (
     <div className={shown ? 'bk-hud' : 'bk-hud off'} aria-hidden={!shown || undefined}>
+      <Vitals health={hud.health} air={hud.air} />
       <div className="bk-cross" aria-hidden="true" />
       {hud.position && <div className="bk-pos">{hud.position}</div>}
       <div className={named ? 'bk-name on' : 'bk-name'} aria-live="polite">{HOTBAR[hud.selected].label}</div>
@@ -147,12 +156,16 @@ const HudLayer = ({ hud, shown }) => {
   )
 }
 
-/** The dim layer and the panels over it: Paused over a game that isn't being played, Controls wherever it was opened. */
-const StartPanels = ({ flow, resumeRef }) => (
+/**
+ * The dim layer and the panels over it: Paused over a game that isn't being played, the death panel over one the
+ * player died in, Controls wherever it was opened.
+ */
+const StartPanels = ({ flow, hud, refs }) => (
   <>
-    <div className={flow.paused ? 'bk-dim shown' : 'bk-dim'} />
+    <div className={flow.paused || flow.dead ? 'bk-dim shown' : 'bk-dim'} />
+    <DeathPanel respawnRef={refs.dead} shown={flow.dead} cause={hud.cause ?? null} onRespawn={flow.respawn} />
     <PausePanel
-      resumeRef={resumeRef}
+      resumeRef={refs.pause}
       shown={flow.paused && flow.panel === PANEL.NONE}
       onResume={flow.resume}
       onControls={flow.openControls}
@@ -164,7 +177,7 @@ const StartPanels = ({ flow, resumeRef }) => (
 
 /**
  * @param {{
- *   hud: { playing: boolean, selected: number, position: string }, saveFailure: 'full' | 'blocked' | null,
+ *   hud: import('./logic/engineHud').HudState, saveFailure: 'full' | 'blocked' | null,
  *   status: import('./logic/worldStatus').WorldStatus, progress: { done: number, total: number } | null,
  *   flow: ReturnType<typeof import('./logic/useStartFlow').useStartFlow>, active: boolean,
  * }} props - `status`: one of WORLD_STATUS; `progress`: the build so far, null before the first report; `active`: the
@@ -174,7 +187,9 @@ export const MinecraftHud = ({ hud, saveFailure, status, progress, flow, active 
   const ready = status === WORLD_STATUS.READY
   const lifted = useLifted(ready)
   const resumeRef = useRef(null)
-  useFocusHandoff(surfaceOf(ready, flow), active, resumeRef)
+  const respawnRef = useRef(null)
+  const refs = useRef({ pause: resumeRef, dead: respawnRef }).current
+  useFocusHandoff(surfaceOf(ready, flow), active, refs)
   if (!ready && status !== WORLD_STATUS.LOADING) return <StatusCard card={STATUS_CARDS[status]} />
   const { stage, panel } = flow
   const onTitle = stage === STAGE.TITLE && panel === PANEL.NONE
@@ -189,7 +204,7 @@ export const MinecraftHud = ({ hud, saveFailure, status, progress, flow, active 
       <TitleBlock status={ready ? worldSummary(flow.editCount) : loadingStatus(progress)} hidden={ready && !onTitle}>
         {ready && <TitleActions onPlay={flow.play} onControls={flow.openControls} />}
       </TitleBlock>
-      {ready && <StartPanels flow={flow} resumeRef={resumeRef} />}
+      {ready && <StartPanels flow={flow} hud={hud} refs={refs} />}
     </>
   )
 }

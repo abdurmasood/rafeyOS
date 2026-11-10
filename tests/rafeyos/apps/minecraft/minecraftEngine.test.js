@@ -36,7 +36,11 @@ describe('the Minecraft engine', () => {
     const { x, y, z } = loaded.island.spawn
     const { lastHud } = track(start())
 
-    expect(lastHud()).toEqual({ playing: false, selected: 0, position: expect.stringMatching(new RegExp(`^x ${x.toFixed(1)} · y ${y.toFixed(1)} · z ${z.toFixed(1)} · [NESW]$`)) })
+    expect(lastHud()).toEqual({
+      playing: false, selected: 0,
+      position: expect.stringMatching(new RegExp(`^x ${x.toFixed(1)} · y ${y.toFixed(1)} · z ${z.toFixed(1)} · [NESW]$`)),
+      health: 20, air: 20, dead: false, cause: null,
+    })
   })
 
   it('starts playing on capture, and picks a block with the number keys', () => {
