@@ -34,9 +34,9 @@ useGLTF.preload(GLB_URL, DRACO_PATH)
 useTexture.preload(TEXTURE_URLS)
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
-// `/studio?rest` freezes everything in the render's own pose, to diff the page against the Cycles reference
+// `/os?app=studio&rest` freezes everything in the render's own pose, to diff the room against the Cycles reference
 const restPose = () => new URLSearchParams(window.location.search).has('rest')
-// `/studio?at=<seconds>` freezes everything at one moment of his session, to check a pose
+// `/os?app=studio&at=<seconds>` freezes everything at one moment of his session, to check a pose
 const frozenAt = () => {
   const value = new URLSearchParams(window.location.search).get('at')
   return value === null ? null : Number(value)
