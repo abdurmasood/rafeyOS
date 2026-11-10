@@ -26,7 +26,12 @@ describe('which night a visitor walks in on', () => {
   })
 
   it('keeps the reference session for ?at=, so frozen moments stay comparable', () => {
-    expect(sessionFromUrl('?at=45.19', LINES, never)).toEqual({ seed: REFERENCE_SEED, openingLine: REFERENCE_OPENING_LINE })
+    expect(sessionFromUrl('?at=45.19', LINES, never)).toEqual({
+      seed: REFERENCE_SEED,
+      openingLine: REFERENCE_OPENING_LINE,
+      reference: true,
+      first: null,
+    })
   })
 
   it('lets ?seed= pick the session for a frozen moment too', () => {
@@ -35,6 +40,12 @@ describe('which night a visitor walks in on', () => {
 
   it('ignores a seed that is not a whole number', () => {
     expect(sessionFromUrl('?seed=abc', LINES, () => 0.25).seed).toBe(2 ** 30)
+  })
+
+  it('starts the night on an activity from ?activity=, to check it', () => {
+    expect(sessionFromUrl('?activity=break&at=4', LINES, never)).toMatchObject({ reference: true, first: 'break' })
+    expect(sessionFromUrl('?activity=dance', LINES, () => 0.5).first).toBeNull()
+    expect(sessionFromUrl('?activity=code', LINES, () => 0.5).first).toBeNull()
   })
 
   it('opens at the reference line when the code is too short to start later', () => {
