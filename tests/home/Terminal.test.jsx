@@ -10,7 +10,6 @@ import { bioDescription } from '@/lib/descriptions'
 const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
 vi.mock('@/lib/loadRafeyOS', () => ({ loadRafeyOS: vi.fn(() => Promise.resolve({})) }))
-vi.mock('@/lib/loadProjects', () => ({ loadProjects: vi.fn() }))
 // The player's waveform never decodes here, so it stays on "loading…"
 vi.mock('@/lib/audioSamples', () => ({ loadSamples: () => new Promise(() => {}) }))
 
@@ -227,24 +226,26 @@ describe('home terminal: panels', () => {
     expect(container.querySelector('article.article h1').textContent).toBe(`# ${post.title}`)
   })
 
-  it.each([
-    ['projects --3d', () => {}],
-    ['projects', () => act(() => {
-      fireEvent.keyDown(window, { key: 'v' })
-    })],
-  ])('%s takes the LoadingBar path to the 3D projects page', (command, then) => {
-    vi.useFakeTimers()
+  it('projects --3d is refused with the usage, and the page stays', () => {
     const { container } = render(<Page />)
 
-    run(command)
-    then()
+    run('projects --3d')
 
-    expect(container.querySelector('.terminal-output')).toBeNull()
-    act(() => vi.advanceTimersByTime(5499))
+    expect(lastRow(container).textContent).toBe("projects: unknown option '--3d'. Usage: projects")
     expect(push).not.toHaveBeenCalled()
-    act(() => vi.advanceTimersByTime(1))
-    expect(push).toHaveBeenCalledWith('/projects')
-    vi.useRealTimers()
+  })
+
+  it('v does nothing in the projects picker', () => {
+    render(<Page />)
+    run('projects')
+
+    act(() => {
+      fireEvent.keyDown(window, { key: 'v' })
+    })
+
+    expect(screen.getByRole('list', { name: 'Projects' })).toBeTruthy()
+    expect(screen.queryByText('[ 3D ]')).toBeNull()
+    expect(push).not.toHaveBeenCalled()
   })
 
   it('open linkedin opens it in a new tab with today\'s line', () => {

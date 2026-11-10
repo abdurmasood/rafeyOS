@@ -222,24 +222,19 @@ describe('Terminal app', () => {
     expect(win.querySelector('.tline input')).toBeTruthy()
   })
 
-  // The one difference from the homepage: there, v leaves for the /projects page
-  it('v in the projects picker opens the Projects window', () => {
+  it('v does nothing in the projects picker', () => {
     const { container } = renderDesktop()
     const { win, input } = openTerminal(container)
     typeCommand(input, 'projects')
-
-    act(() => {
-      fireEvent.keyDown(document.body, { key: 'v' })
-    })
-    expect(windowsOf(container, 'projects')).toEqual([])
+    const windowsBefore = container.querySelectorAll('.win').length
 
     act(() => {
       fireEvent.keyDown(win.querySelector('.term'), { key: 'v' })
     })
 
-    expect(windowsOf(container, 'projects')).toHaveLength(1)
-    expect(win.querySelector('.picker-list')).toBeNull()
-    expect(win.querySelector('.project-printed')).toBeNull()
+    expect(container.querySelectorAll('.win')).toHaveLength(windowsBefore)
+    expect(win.querySelector('.picker-list')).toBeTruthy()
+    expect(within(win).queryByText('[ 3D ]')).toBeNull()
   })
 
   it('skills lists each tool as a link that opens in a new tab', () => {
@@ -392,26 +387,22 @@ describe('Terminal app', () => {
     expect(log(win).children).toHaveLength(0)
   })
 
-  it('opens folders in Files and the 3D view in Projects', () => {
+  it('opens folders in Files', () => {
     const { container } = renderDesktop()
     const { win, input } = openTerminal(container)
 
     typeCommand(input, 'xdg-open /home/rafey/projects')
     expect(windowsOf(container, 'files')).toHaveLength(1)
-
-    typeCommand(input, 'projects --3d')
-    expect(windowsOf(container, 'projects')).toHaveLength(1)
     expect(log(win).querySelectorAll('.dm')).toHaveLength(0)
   })
 
-  it('still opens project files in the Text Editor', () => {
+  it('opens project files in the Text Editor', () => {
     const { container } = renderDesktop()
     const { input } = openTerminal(container)
 
     typeCommand(input, 'xdg-open /home/rafey/projects/leaf-line.txt')
 
     expect(windowsOf(container, 'editor')).toHaveLength(1)
-    expect(windowsOf(container, 'projects')).toHaveLength(0)
   })
 
   it('plays music without opening a window', async () => {

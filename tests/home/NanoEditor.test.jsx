@@ -6,7 +6,6 @@ import { HOME, RAFEY_HOME } from '@/components/rafeyos/core/vfs/buildVfs'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@/lib/loadRafeyOS', () => ({ loadRafeyOS: vi.fn(() => Promise.resolve({})) }))
-vi.mock('@/lib/loadProjects', () => ({ loadProjects: vi.fn() }))
 
 const { default: Terminal } = await import('@/components/home/Terminal')
 const { TerminalProvider } = await import('@/components/home/TerminalProvider')

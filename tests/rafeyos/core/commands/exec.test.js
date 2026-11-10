@@ -111,19 +111,20 @@ describe('content commands', () => {
     ])
   })
 
-  it('projects refuses anything but --3d, as on the homepage', () => {
+  it('projects takes no options, as on the homepage', () => {
     expect(run('projects grid')).toMatchObject({
-      lines: [error("projects: unknown option 'grid'. Usage: projects [--3d]")],
+      lines: [error("projects: unknown option 'grid'. Usage: projects")],
       effects: [],
       code: 1,
     })
   })
 
-  it('projects --3d opens the Projects app', () => {
-    const out = run('projects --3d')
-
-    expect(texts(out)).toEqual(['Opening Projects…'])
-    expect(out.effects).toEqual([{ type: 'openApp', app: 'projects' }])
+  it('projects --3d is refused and opens nothing', () => {
+    expect(run('projects --3d')).toMatchObject({
+      lines: [error("projects: unknown option '--3d'. Usage: projects")],
+      effects: [],
+      code: 1,
+    })
   })
 
   it('blog opens the picker on a terminal, and says total 0 with no posts', () => {
