@@ -57,7 +57,7 @@ export const SHIPPED_MTIME = Date.UTC(2026, 9, 1)
 export const TRASH = 'trash'
 
 // Rafey's portfolio commands, shipped as stubs so `ls /usr/local/bin` lists them
-const COMMANDS = Object.freeze(['bio', 'projects', 'blog', 'music', 'contact', 'skills', 'help', 'os', 'studio'])
+const COMMANDS = Object.freeze(['bio', 'projects', 'blog', 'music', 'contact', 'skills', 'help', 'os'])
 
 /** Every other command the shell runs, stubbed in /usr/bin as Ubuntu ships them. Bash builtins like cd stay out. */
 export const SYSTEM_COMMANDS = Object.freeze([

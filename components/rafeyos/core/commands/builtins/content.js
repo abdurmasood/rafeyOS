@@ -1,10 +1,9 @@
-// Commands that print Rafey's content: help, bio, projects, blog, skills, music, contact, studio
+// Commands that print Rafey's content: help, bio, projects, blog, skills, music, contact
 import { PANEL_KINDS, dim, panel, pre } from '@/components/rafeyos/core/commands/lines'
 import { failure, operands, result, EFFECTS } from './result'
 import { APP } from '@/components/rafeyos/core/catalog/apps'
 import { RAFEY_HOME } from '@/components/rafeyos/core/vfs/buildVfs'
 import { joinPath } from '@/components/rafeyos/core/vfs/paths'
-import { STUDIO_HREF } from '@/lib/studio/route'
 
 const PROJECT_NAME_WIDTH = 22
 const SUMMARY_WORDS = 7
@@ -64,10 +63,4 @@ const contact = ({ content }) =>
     ),
   ])
 
-// The live night room, in a new tab so the desktop keeps its windows (the homepage takes its own LoadingBar path)
-const studio = ({ argv }) => {
-  if (argv.length) return failure(`studio: unknown option '${argv[0]}'. Usage: studio`)
-  return result([pre('Opening the studio…')], [{ type: EFFECTS.OPEN_EXTERNAL, href: STUDIO_HREF }])
-}
-
-export const contentCommands = Object.freeze({ help, bio, projects, blog, skills, music, contact, studio })
+export const contentCommands = Object.freeze({ help, bio, projects, blog, skills, music, contact })

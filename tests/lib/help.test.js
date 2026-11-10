@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { HELP_LINES, HELP_HINT, HOME_HELP_LINES, RAFEYOS_HELP_LINE, helpRow } from '@/lib/help.js'
 
-// Copied verbatim from components/home/Terminal.jsx before the extraction (HEAD), plus the studio row
+// Copied verbatim from components/home/Terminal.jsx before the extraction (HEAD)
 const ORIGINAL_HELP = [
   'Available commands:',
   '',
@@ -10,7 +10,6 @@ const ORIGINAL_HELP = [
   '  projects    body of work',
   "  blog        thoughts",
   '  music       production',
-  '  studio      the room, live',
   '  contact     get in touch',
   '',
   "<span class='grey'>Use ↑ for history, tab to autocomplete, 'clear' to reset.</span>",

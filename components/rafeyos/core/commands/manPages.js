@@ -104,14 +104,6 @@ const PAGES = Object.freeze({
     synopsis: ['music [story | play]'],
     description: ['story  print his journey as a producer', 'play   play his track', 'With no command, print the usage.'],
   },
-  studio: {
-    summary: "Rafey's studio, live",
-    synopsis: ['studio'],
-    description: [
-      'Open the night studio: the room renders live in the browser, with the wind coming in through the window.',
-      'From rafeyOS it opens in a new tab, so the desktop keeps its windows.',
-    ],
-  },
   contact: { summary: 'how to reach Rafey', synopsis: ['contact'], description: ['Print his email address and LinkedIn name.'] },
   open: opener('open'),
   'xdg-open': opener('xdg-open'),
