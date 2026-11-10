@@ -33,7 +33,14 @@ DELTAS = {
     "haze": ("base", "beam_off"),
     "candle": ("base", "candle_off"),
     "up": ("up_free", "up_off"),
+    "figure": ("figure_gone", "base"),  # him and his chair rolled away: his shadows lift
+    "body": ("body_gone", "base"),  # him up out of the chair: his shadows lift, the chair's stay
+    "guitar": ("guitar_gone", "base"),  # the guitar off its hook: its shadow leaves the wall
+    "screen": ("screen_off", "base"),  # the monitor asleep: its glow leaves the desk
 }
+# Soft, rarely-seen changes packed at a fraction of the plate's resolution, so the final atlas fits the
+# 7200 px texture the page requires (the page samples by rect, so resolution doesn't matter to it)
+DELTA_DOWNSCALE = {"figure": 2, "body": 2, "guitar": 2, "screen": 2}
 # A light's footprint: where its blurred contribution clears the render-noise floor
 FOOTPRINT_BLUR = 6
 FOOTPRINT_LOW = 1.5 / 255.0
@@ -47,7 +54,7 @@ ATLAS_GAP = 4
 MAX_TEXTURE = 7200  # lib/studio/webgl.js MIN_TEXTURE_SIZE: every texture must fit it
 # Layers taken as seen rather than un-premultiplied: the chair's see-through backrest keeps what shows
 # through it (him, the room), so drawn opaque on the page it matches the render at rest
-COMPOSITE_LAYERS = {"e"}
+COMPOSITE_LAYERS = {"e", "g"}
 BASE_PLATE_WIDTH = 4800  # pixel sizes above are tuned for this width and scale with the plate
 SCALE = 1.0  # set from the base plate in main()
 
@@ -138,6 +145,15 @@ def uv_rect(x0: int, y0: int, x1: int, y1: int, w: int, h: int) -> list[float]:
     return [round(x0 / w, 6), round(1 - y1 / h, 6), round(x1 / w, 6), round(1 - y0 / h, 6)]
 
 
+def downscale(image: np.ndarray, factor: int) -> np.ndarray:
+    """Box-average `factor` x `factor` pixel blocks (the edge rows and columns that don't fill a block are dropped)."""
+    if factor == 1:
+        return image
+    h, w = image.shape[0] // factor * factor, image.shape[1] // factor * factor
+    trimmed = image[:h, :w]
+    return trimmed.reshape(h // factor, factor, w // factor, factor, -1).mean(axis=(1, 3))
+
+
 def pack_atlas(crops: dict[str, np.ndarray], channels: int) -> tuple[np.ndarray, dict[str, list[float]]]:
     names = list(crops)
     sizes = [(crops[n].shape[1], crops[n].shape[0]) for n in names]
@@ -178,7 +194,7 @@ def build_deltas(renders: dict[str, np.ndarray], plate_wh: tuple[int, int]) -> t
         for sign, part in (("pos", np.clip(diff[window], 0, None)), ("neg", np.clip(-diff[window], 0, None))):
             part = part * mask[window][..., None]
             scale = float(part.max()) or 1.0
-            crops[f"{name}.{sign}"] = part / scale
+            crops[f"{name}.{sign}"] = downscale(part / scale, DELTA_DOWNSCALE.get(name, 1))
             layer[sign] = {"scale": round(scale, 6)}
         meta[name] = layer
         print(f"[post] delta {name}: {x1 - x0}x{y1 - y0} px, +{layer['pos']['scale']:.4f} / -{layer['neg']['scale']:.4f}")
@@ -241,6 +257,62 @@ def build_plants(renders: dict[str, np.ndarray], groups: dict[str, list[str]], p
     return atlas, meta
 
 
+# Live light for him off the chair (studio_probes.py): an ambient cube per probe (the light a white surface
+# facing each axis reflects), and the display LUT
+CUBE_FROM_BLENDER = (0, 1, 4, 5, 3, 2)  # baked faces +X -X +Y -Y +Z -Z (Blender) -> +x -x +y -y +z -z (three.js)
+
+
+def build_probes(renders_dir: str) -> dict | None:
+    """Six colours per probe (three.js axis order), on a regular grid in three.js axes, x fastest."""
+    path = os.path.join(renders_dir, "probes.json")
+    if not os.path.exists(path):
+        return None
+    info = json.load(open(path))
+    (nx, ny, nz), step = info["counts"], info["step"]
+    points = info["points"]
+    cubes = np.array(info["cubes"])[:, CUBE_FROM_BLENDER]
+    zs = sorted({p[2] for p in points})
+    order, valid = [], []
+    for iz_three in range(ny):  # three z ascending = Blender y descending
+        for iy_three in range(nz):  # three y ascending = Blender z ascending
+            for ix in range(nx):
+                k = ix + nx * ((ny - 1 - iz_three) + ny * iy_three)
+                order.append(k)
+                valid.append(bool(info["valid"][k]))
+    xs = sorted({p[0] for p in points})
+    ys = sorted({p[1] for p in points})
+    lifts = [round(zs[i + 1] - zs[i], 4) for i in range(len(zs) - 1)]
+    lit = cubes[[k for k, v in zip(order, valid) if v]]
+    print(f"[post] probes: {sum(valid)} valid of {len(valid)}, grid {nx}x{nz}x{ny}; light per face median {np.round(np.median(lit, axis=(0, 1)), 4)}")
+    return {
+        "origin": [xs[0], zs[0], -ys[-1]],
+        "step": [step, lifts[0] if lifts else 1.0, step],
+        "counts": [nx, nz, ny],
+        "valid": [1 if v else 0 for v in valid],
+        "cube": [round(float(c), 5) for k in order for c in cubes[k].ravel()],
+    }
+
+
+def build_lut(renders_dir: str, public: str) -> dict | None:
+    """The display LUT as an exact 8-bit PNG: row = green, column = blue tile * size + red, top row green 0."""
+    path = os.path.join(renders_dir, "lut.png")
+    meta_path = os.path.join(renders_dir, "lut.json")
+    if not (os.path.exists(path) and os.path.exists(meta_path)):
+        return None
+    meta = json.load(open(meta_path))
+    table = load(path)[::-1, :, :3]  # Blender wrote rows bottom-up (green 0 at the bottom)
+    u8 = np.clip(np.rint(table * 255.0), 0, 255).astype(np.uint8)
+    out_path = os.path.join(public, "lut.png")
+    spec = oiio.ImageSpec(u8.shape[1], u8.shape[0], 3, oiio.UINT8)
+    out = oiio.ImageOutput.create(out_path)
+    out.open(out_path, spec)
+    out.write_image(u8)
+    out.close()
+    mid = table[meta["size"] // 2, (meta["size"] // 2) * meta["size"] + meta["size"] // 2]
+    print(f"[post] lut.png {u8.shape[1]}x{u8.shape[0]} ({meta['view']} / {meta['look']}); middle entry -> {np.round(mid, 3)}")
+    return {"size": meta["size"], "stops": meta["stops"]}
+
+
 def background_colour(base: np.ndarray) -> list[float]:
     edge = np.concatenate([base[:8].reshape(-1, base.shape[2]), base[-8:].reshape(-1, base.shape[2])])
     return [round(float(v), 5) for v in edge[:, :3].mean(axis=0)]
@@ -256,8 +328,8 @@ def main() -> None:
     p.add_argument("--manifest", default=MANIFEST_PATH)
     args = p.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
 
-    layers = {f"{kind}_{key}" for kind in ("plants", "matte") for key in "abcde"}
-    names = {"base", "moon_off", "beam_off", "candle_off", "up_free", "up_off", *layers}
+    layers = {f"{kind}_{key}" for kind in ("plants", "matte") for key in "abcdefg"}
+    names = {name for pair in DELTAS.values() for name in pair} | layers
     renders = {}
     for name in names | {args.base_name}:
         path = os.path.join(args.renders, f"{name}.png")
@@ -290,6 +362,10 @@ def main() -> None:
             "plantLayers": plant_meta,
         }
     )
+    probes = build_probes(args.renders)
+    lut = build_lut(args.renders, args.public)
+    if probes and lut:
+        manifest["light"] = {"probes": probes, "lut": lut}
     os.makedirs(os.path.dirname(args.manifest), exist_ok=True)
     with open(args.manifest, "w") as f:
         json.dump(manifest, f, indent=2)

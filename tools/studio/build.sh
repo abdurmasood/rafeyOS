@@ -7,7 +7,7 @@
 # Save in Blender first: this reads the file from disk. Nothing here ever saves it.
 set -euo pipefail
 
-ALL_VARIANTS="base moon_off beam_off candle_off up_free up_off plants_a plants_b plants_c plants_d plants_e matte_a matte_b matte_c matte_d matte_e"
+ALL_VARIANTS="base moon_off beam_off candle_off up_free up_off figure_gone body_gone guitar_gone screen_off plants_a plants_b plants_c plants_d plants_e plants_f plants_g matte_a matte_b matte_c matte_d matte_e matte_f matte_g"
 case "${1:-}" in
   draft) SPP=48 VARIANTS="$ALL_VARIANTS" ;;
   final) SPP=384 VARIANTS="ref $ALL_VARIANTS" ;;  # ref is only for comparing the page against Cycles
@@ -40,10 +40,11 @@ step export "$BLENDER" -b "$SOURCE" --python-exit-code 1 -P "$SCRIPTS/export.py"
   --glb "$OUT/studio.glb" --facts "$OUT/scene.json"
 # shellcheck disable=SC2086  # VARIANTS is a word list on purpose
 step render "$BLENDER" -b "$SOURCE" --python-exit-code 1 -P "$SCRIPTS/render.py" -- \
-  --variants $VARIANTS --spp "$SPP" --out "$OUT"
+  --variants $VARIANTS --spp "$SPP" --out "$OUT" --probes
 step postprocess "$BLENDER" -b --factory-startup --python-exit-code 1 -P "$SCRIPTS/postprocess.py" -- \
   --renders "$OUT"
 cp "$OUT/studio.glb" "$REPO/public/studio/v1/studio.glb"
+if [ -f "$OUT/motion.bin" ]; then cp "$OUT/motion.bin" "$REPO/public/studio/v1/motion.bin"; fi
 
 if [ "$(shasum -a 256 "$SOURCE" | cut -d' ' -f1)" != "$before" ]; then
   echo "WARNING: $SOURCE changed during the build (saved in Blender meanwhile?)" >&2

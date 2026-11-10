@@ -25,14 +25,17 @@ from mathutils import Vector  # noqa: E402
 import studio_common as sc  # noqa: E402
 
 MATTE_SPP = 32
-# Colour layers: plant groups a and b, c for the swaying tree, d for the figure and the chair top,
-# e for the chair's see-through backrest. Each gets its own pair because on screen it overlaps things
+# Colour layers: plant groups a and b, c for the swaying tree, d for the figure, his chair and the guitar,
+# e for the chair's see-through backrest, and f / g for the chair and its backrest with him out of it
+# (the empty chair, when he gets up). Each gets its own pair because on screen it overlaps things
 # in the other groups, and one layer can't hold overlaps. The backrest's colour is taken as seen, him
 # showing through it (postprocess.COMPOSITE_LAYERS), so plants_e shows group d too.
-GROUP_KEYS = "abcde"
+GROUP_KEYS = "abcdefg"
 TREE_GROUP = 2
 FIGURE_GROUP = 3
 BACKREST_GROUP = 4
+CHAIR_GROUP = 5
+EMPTY_BACKREST_GROUP = 6
 
 BASE: dict[str, Any] = {
     "camera": "overscan",
@@ -64,6 +67,16 @@ VARIANTS: dict[str, dict[str, Any]] = {
     "matte_d": {**BASE, "plant_group": FIGURE_GROUP, "matte": True},
     "plants_e": {**BASE, "plant_group": BACKREST_GROUP, "also_visible": FIGURE_GROUP},
     "matte_e": {**BASE, "plant_group": BACKREST_GROUP, "matte": True},
+    "plants_f": {**BASE, "plant_group": CHAIR_GROUP, "hide_him": True},
+    "matte_f": {**BASE, "plant_group": CHAIR_GROUP, "matte": True, "hide_him": True},
+    "plants_g": {**BASE, "plant_group": EMPTY_BACKREST_GROUP, "also_visible": CHAIR_GROUP, "hide_him": True},
+    "matte_g": {**BASE, "plant_group": EMPTY_BACKREST_GROUP, "matte": True, "hide_him": True},
+    # The room with him and his chair gone (rolled away), with only him gone (up out of the chair), with the
+    # guitar off its hook, and with the monitor asleep: the page fades to these
+    "figure_gone": {**BASE, "figure_gone": True},
+    "body_gone": {**BASE, "hide_him": True},
+    "guitar_gone": {**BASE, "guitar_gone": True},
+    "screen_off": {**BASE, "screen_off": True},
 }
 
 
@@ -107,7 +120,18 @@ def plant_groups(scene: bpy.types.Scene) -> list[list[str]]:
 
 def layer_groups(scene: bpy.types.Scene) -> list[list[str]]:
     """Everything coloured from its own Cycles layer, in GROUP_KEYS order."""
-    return [*plant_groups(scene), [sc.TREE_SWAY], sc.live_figure_parts("figure"), sc.live_figure_parts("backrest")]
+    return [
+        *plant_groups(scene),
+        [sc.TREE_SWAY],
+        sc.live_figure_parts("figure"),
+        sc.live_figure_parts("backrest"),
+        sc.live_figure_parts("figure", role=sc.ROLE_CHAIR),
+        sc.live_figure_parts("backrest", role=sc.ROLE_CHAIR),
+    ]
+
+
+def hidden_from_every_ray(names: list[str]) -> list[tuple[Any, str, Any]]:
+    return [(sc.obj(name), "hide_render", True) for name in names]
 
 
 def uplight_free_collection() -> bpy.types.Collection:
@@ -148,6 +172,16 @@ def variant_changes(scene: bpy.types.Scene, spec: dict[str, Any]) -> list[tuple[
         changes.append((sc.obj(name).data, "energy", energy))
     if spec.get("uplight_free"):
         changes.append((sc.obj(sc.UPLIGHT).light_linking, "blocker_collection", uplight_free_collection()))
+    if spec.get("figure_gone"):  # him and his chair, rolled away together
+        changes += hidden_from_every_ray([*sc.live_figure_parts(role=sc.ROLE_HIM), *sc.live_figure_parts(role=sc.ROLE_CHAIR), sc.FIGURE_SHADOW])
+    if spec.get("hide_him"):  # him alone: the empty chair stays
+        changes += hidden_from_every_ray([*sc.live_figure_parts(role=sc.ROLE_HIM), sc.FIGURE_SHADOW])
+    if spec.get("guitar_gone"):
+        changes += hidden_from_every_ray(sc.live_figure_parts(role=sc.ROLE_GUITAR))
+    if spec.get("screen_off"):
+        glow = bpy.data.materials[sc.SCREEN_GLOW]
+        emission = next(n for n in glow.node_tree.nodes if n.type == "EMISSION")
+        changes.append((emission.inputs["Strength"], "default_value", 0.0))
     if spec.get("matte"):
         changes.extend(matte_changes(scene, layer))
     return changes
@@ -212,6 +246,7 @@ def main() -> None:
     p.add_argument("--no-prep", action="store_true", help="Render the scene as saved, without studio prep")
     p.add_argument("--no-set-dressing", action="store_true", help="Prep without the window, sky and tree")
     p.add_argument("--percentage", type=int, default=100, help="Resolution scale for quick previews")
+    p.add_argument("--probes", action="store_true", help="Also render the light probes and the display LUT")
     args = p.parse_args(sc.script_args())
     scene = bpy.context.scene
     if not args.no_prep:
@@ -227,6 +262,13 @@ def main() -> None:
     print(f"[render] colour layers: {groups}")
     for name in args.variants:
         render_variant(scene, name, out_dir, args.glare_size, args.percentage)
+    if args.probes:
+        import studio_probes
+
+        studio_probes.display_lut(scene, out_dir)
+        started = time.time()
+        studio_probes.render_probes(scene, out_dir, temporarily)
+        print(f"[render] probes took {time.time() - started:.0f}s")
 
 
 if __name__ == "__main__":

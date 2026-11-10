@@ -66,7 +66,11 @@ FIGURE_LIVE = "studio_live"  # figure parts drawn live on the page (they type an
 FIGURE_NO_SHADOW = "studio_no_shadow"  # parts that travel far: their shadows would stay behind as ghosts
 FIGURE_LAYER = "studio_layer"  # which colour layer a live part takes its colour from: "figure" or "backrest"
 FIGURE_RIG = "studio_figure_rig"  # scene property: the figure's bones and which bones move each live part
+FIGURE_ROLE = "studio_role_in_figure"  # what a live part is: "him", his "chair", the "guitar" or the "mouse" he moves
+ROLE_HIM, ROLE_CHAIR, ROLE_GUITAR, ROLE_MOUSE = "him", "chair", "guitar", "mouse"
 MONITOR_SCREEN = "Monitor Screen"
+SCREEN_GLOW = "Screen Glow"  # the monitor's emissive material: off in the screen_off render
+FIGURE_SHADOW = f"{FIGURE_PREFIX}Shadow"  # his camera-invisible shadow caster (studio_mannequin.shadow_caster)
 
 PLANTS = (
     "Monstera (floor)",
@@ -141,10 +145,14 @@ def to_three_matrix(matrix_world: Matrix) -> list[float]:
     return [round(m[row][col], 7) for col in range(4) for row in range(4)]
 
 
-def live_figure_parts(layer: str | None = None) -> list[str]:
-    """Names of the live figure and chair parts, optionally only those coloured from one layer."""
+def live_figure_parts(layer: str | None = None, role: str | None = None) -> list[str]:
+    """Names of the live figure, chair and guitar parts, optionally only those of one colour layer or role."""
     return sorted(
-        ob.name for ob in bpy.context.scene.objects if ob.get(FIGURE_LIVE) and (layer is None or ob.get(FIGURE_LAYER) == layer)
+        ob.name
+        for ob in bpy.context.scene.objects
+        if ob.get(FIGURE_LIVE)
+        and (layer is None or ob.get(FIGURE_LAYER) == layer)
+        and (role is None or ob.get(FIGURE_ROLE, ROLE_HIM) == role)
     )
 
 

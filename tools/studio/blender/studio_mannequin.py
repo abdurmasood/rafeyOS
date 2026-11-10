@@ -3,7 +3,7 @@
 Set dressing, applied in memory like the rest: the asset is appended from its own .blend (kept outside the
 repo), scaled to Rafey's height, posed seated at the desk with his fingers on the home row, baked into that
 pose, and dressed as Rafey (red varsity jacket, jeans, curly hair, headphones round his neck). His 69 deform
-bones are mapped onto the page's 40 (studio_figure.PAGE_BONES), so the page poses him with the same rig.
+bones are mapped onto the page's bones (page_skeleton), so the page poses him with the same rig.
 Chosen by Rafey on 2026-11-10 over the hand-built figure, whose short arms limited how he could move.
 """
 
@@ -52,6 +52,7 @@ ZONES = (
 )
 THICKNESS = {"Jacket": 0.012, "Jeans": 0.006}  # m of cloth over the body, so the silhouette has some bulk
 ARM_PAGE_BONES = ("shoulder", "elbow", "hand", "index", "middle", "ring", "little", "thumb")
+LEG_PAGE_BONES = ("thigh", "shin", "foot", "toe")  # each its own page bone, so he can stand and walk
 
 
 def zone_of(group: str) -> str:
@@ -77,8 +78,8 @@ def page_bone(group: str) -> str | None:
     base = parts[0]
     if base == "spine":
         return "swivel" if number == 0 else "spine" if number <= 3 else "head"
-    if base in ("thigh", "shin", "foot", "toe"):
-        return "swivel"
+    if base in LEG_PAGE_BONES:
+        return f"{base}_{side}"  # the .001 segment rides with its bone
     if base == "shoulder":
         return "spine"
     arm = {"upper_arm": "shoulder", "forearm": "elbow", "hand": "hand", "palm": "hand"}
@@ -335,6 +336,16 @@ def fit_hands(rig, home: dict[int, list[Vector]], space_y: float) -> dict[str, l
     return report
 
 
+def deform_matrices(rig: bpy.types.Object, posed: bool) -> dict[str, list[float]]:
+    """Each deform bone's world matrix (row-major, flat): as posed now, or in the asset's rest (T) pose."""
+    bpy.context.view_layer.update()
+    out = {}
+    for bone in rig.data.bones:
+        local = rig.pose.bones[bone.name].matrix if posed else bone.matrix_local
+        out[bone.name] = [v for row in rig.matrix_world @ local for v in row]
+    return out
+
+
 def bake(rig: bpy.types.Object, mesh_ob: bpy.types.Object) -> None:
     """Freeze the seated pose into the mesh, in world space, and drop the armature."""
     for modifier in mesh_ob.modifiers:
@@ -404,7 +415,7 @@ def shadow_caster(mesh_ob: bpy.types.Object, main_bone: dict[int, str]) -> bpy.t
     """A copy of him without arms, unseen but casting his body's shadow into the plates (the live arms cast none)."""
     proxy = mesh_ob.copy()
     proxy.data = mesh_ob.data.copy()
-    proxy.name = f"{sc.FIGURE_PREFIX}Shadow"
+    proxy.name = sc.FIGURE_SHADOW
     bpy.context.scene.collection.objects.link(proxy)
     bm = bmesh.new()
     bm.from_mesh(proxy.data)
@@ -450,6 +461,13 @@ def page_skeleton(fig, rig) -> None:
             parent = f"hand_{side}"
             for k, joint in enumerate("abc", start=1):
                 parent = fig.bone(f"{finger}_{side}_{joint}", parent, head_of(rig, f"DEF-{deform}.0{k}.{side}"))
+    # The headphones round his neck: the page shrinks them away when he puts a pair on his head
+    fig.bone("phones", "spine", head_of(rig, "DEF-spine.004"))
+    # His legs, from the pelvis (swivel), so he can get up out of the chair
+    for side in ("L", "R"):
+        parent = "swivel"
+        for joint in LEG_PAGE_BONES:
+            parent = fig.bone(f"{joint}_{side}", parent, head_of(rig, f"DEF-{joint}.{side}"))
 
 
 def landmarks(rig) -> dict:
@@ -472,11 +490,11 @@ def accessories(fig, figure, mesh_ob, main_bone: dict[int, str], marks: dict) ->
     collar = radius_round(neck_band, neck, up) + THICKNESS["Jacket"] + 0.016
     fig.part(figure.ring(frame, "Collar", "Jacket", neck + up * 0.004, collar, 0.017, up), ["spine"])
     fig.part(figure.ring(frame, "Collar Stripe", "Stripe", neck + up * 0.019, collar + 0.002, 0.006, up), ["spine"])
-    fig.part(figure.ring(frame, "Headphones", "Headphones", neck - up * 0.006, collar + 0.022, 0.011, up), ["spine"])
+    fig.part(figure.ring(frame, "Headphones", "Headphones", neck - up * 0.006, collar + 0.022, 0.011, up), ["phones"])
     forward, right = Vector((0, 1, 0)), Vector((1, 0, 0))
     for sign in (-1, 1):
         cup = neck + right * sign * (collar + 0.03) + forward * 0.02 - up * 0.006
-        fig.part(figure.ellipsoid(frame, f"Headphone Cup {sign}", "Headphones", cup, (0.014, 0.034, 0.034)), ["spine"])
+        fig.part(figure.ellipsoid(frame, f"Headphone Cup {sign}", "Headphones", cup, (0.014, 0.034, 0.034)), ["phones"])
     for side in ("L", "R"):
         wrist, along = marks[f"wrist_{side}"], marks[f"along_{side}"]
         band = [p for p in zone_points(mesh_ob, main_bone, f"elbow_{side}") if -0.06 <= (p - wrist).dot(along) <= 0]
@@ -487,6 +505,8 @@ def accessories(fig, figure, mesh_ob, main_bone: dict[int, str], marks: dict) ->
     low = Vector([min(p[i] for p in skull) for i in range(3)])
     high = Vector([max(p[i] for p in skull) for i in range(3)])
     figure.hair(frame, fig, (low + high) / 2, (high - low) / 2)
+    # His skull, for the pair the page puts on his head: centre, half-sizes (across, front to back, up)
+    fig.headphones = {"centre": list((low + high) / 2), "radii": list((high - low) / 2), "colour": list(figure.COLOURS["Headphones"][0])}
 
 
 def build(fig, figure, seat: Vector, home: dict[int, list[Vector]], space_y: float) -> None:
@@ -495,9 +515,16 @@ def build(fig, figure, seat: Vector, home: dict[int, list[Vector]], space_y: flo
     apply_mirror(mesh_ob)
     strip_controls(rig)
     place(rig, seat)
+    rest = deform_matrices(rig, posed=False)
     sit_upper_body(rig)
     sit_legs(rig)
     check_fit(fit_hands(rig, home, space_y))
+    # For motion clips (studio_motion.py): every deform bone in his T-pose and seated, placed in the room
+    fig.motion_basis = {
+        "rest": rest,
+        "seated": deform_matrices(rig, posed=True),
+        "parents": {b.name: b.parent.name if b.parent else None for b in rig.data.bones},
+    }
     page_skeleton(fig, rig)
     marks = landmarks(rig)
     bake(rig, mesh_ob)

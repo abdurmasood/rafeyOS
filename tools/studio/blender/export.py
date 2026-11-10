@@ -122,6 +122,70 @@ def bone_weights(point: Vector, chain: list[int], skeleton: list[Vector], blend:
 
 
 FIGURE_MESHES = {"figure": "figure_rafey", "backrest": "figure_backrest"}  # one per colour layer
+# For live lighting (studio_probes.py): each vertex's rest normal and diffuse colour, as scalar attributes
+FIGURE_SURFACE = ("_nx", "_ny", "_nz", "_ar", "_ag", "_ab")
+FALLBACK_ALBEDO = (0.18, 0.18, 0.18)
+
+
+def linked_colour(socket) -> tuple[float, float, float] | None:
+    """The colour feeding a socket, roughly: an RGB node's, a ramp's mean stop, or the mean of a mix's colours."""
+    node = socket.links[0].from_node
+    if node.type == "RGB":
+        return tuple(node.outputs[0].default_value[:3])
+    if node.type == "VALTORGB":
+        stops = [e.color[:3] for e in node.color_ramp.elements]
+        return tuple(sum(c[i] for c in stops) / len(stops) for i in range(3))
+    colours = []
+    for inp in node.inputs:
+        if inp.type != "RGBA" or not inp.enabled:
+            continue
+        colours.append(linked_colour(inp) if inp.is_linked else tuple(inp.default_value[:3]))
+    colours = [c for c in colours if c is not None]
+    if not colours:
+        return None
+    return tuple(sum(c[i] for c in colours) / len(colours) for i in range(3))
+
+
+def material_albedo(material) -> tuple[float, float, float]:
+    """A material's diffuse colour (scene-linear) for the page's live lighting; metals count half."""
+    if material is None or not material.use_nodes:
+        return FALLBACK_ALBEDO
+    bsdf = next((n for n in material.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if bsdf is None:
+        return FALLBACK_ALBEDO
+    base = bsdf.inputs["Base Color"]
+    colour = (linked_colour(base) if base.is_linked else tuple(base.default_value[:3])) or FALLBACK_ALBEDO
+    metal = bsdf.inputs["Metallic"]
+    metallic = 0.0 if metal.is_linked else metal.default_value
+    return tuple(c * (1 - 0.5 * metallic) for c in colour)
+
+
+def face_albedos(mesh: bpy.types.Mesh) -> list[tuple[float, float, float]]:
+    """Each face's diffuse colour, from its material slot."""
+    by_slot = [material_albedo(m) for m in mesh.materials] or [FALLBACK_ALBEDO]
+    return [by_slot[min(poly.material_index, len(by_slot) - 1)] for poly in mesh.polygons]
+
+
+def surface_layers(bm: bmesh.types.BMesh) -> list:
+    return [bm.verts.layers.float.new(attr) for attr in FIGURE_SURFACE]
+
+
+def paint_albedo(bm: bmesh.types.BMesh, layers: list, first_face: int, albedos: list) -> None:
+    """Give the vertices of the faces added since first_face their face's colour."""
+    bm.faces.ensure_lookup_table()
+    for face, colour in zip(bm.faces[first_face:], albedos):
+        for vert in face.verts:
+            for layer, value in zip(layers[3:], colour):
+                vert[layer] = value
+
+
+def store_normals(bm: bmesh.types.BMesh, layers: list) -> None:
+    """Rest normals in three.js axes (custom attributes aren't converted by the y-up export)."""
+    bm.normal_update()
+    for vert in bm.verts:
+        n = vert.normal
+        for layer, value in zip(layers[:3], (n.x, n.z, -n.y)):
+            vert[layer] = value
 
 
 def painted_weights(ob: bpy.types.Object, depsgraph: bpy.types.Depsgraph, index: dict) -> tuple[bpy.types.Mesh, list]:
@@ -144,18 +208,28 @@ def build_figure_mesh(name: str, parts: dict, index: dict, coll: bpy.types.Colle
     depsgraph = bpy.context.evaluated_depsgraph_get()
     bm = bmesh.new()
     layers = [bm.verts.layers.float.new(attr) for attr in ("_bone_a", "_bone_b", "_weight_b")]
+    surface = surface_layers(bm)
     for part_name, part in parts.items():
         first = len(bm.verts)
+        first_face = len(bm.faces)
         if part.get("skin"):
             mesh, weights = painted_weights(sc.obj(part_name), depsgraph, index)
+            albedos = face_albedos(mesh)
             bm.from_mesh(mesh)
             bpy.data.meshes.remove(mesh)
+            paint_albedo(bm, surface, first_face, albedos)
             bm.verts.ensure_lookup_table()
             for vert, values in zip(bm.verts[first:], weights):
                 for layer, value in zip(layers, values):
                     vert[layer] = value
             continue
-        append_world_mesh(bm, sc.obj(part_name), depsgraph)
+        ob = sc.obj(part_name)
+        tmp = bpy.data.meshes.new_from_object(ob.evaluated_get(depsgraph))
+        tmp.transform(ob.matrix_world)
+        albedos = face_albedos(tmp)
+        bm.from_mesh(tmp)
+        bpy.data.meshes.remove(tmp)
+        paint_albedo(bm, surface, first_face, albedos)
         bm.verts.ensure_lookup_table()
         chain = [index[bone] for bone in part["chain"]]
         skeleton = [Vector(p) for p in part["skeleton"]]
@@ -163,6 +237,7 @@ def build_figure_mesh(name: str, parts: dict, index: dict, coll: bpy.types.Colle
             for layer, value in zip(layers, bone_weights(vert.co, chain, skeleton, part["blend"])):
                 vert[layer] = value
     used = {round(v[layers[0]]) for v in bm.verts} | {round(v[layers[1]]) for v in bm.verts}
+    store_normals(bm, surface)
     print(f"[export] {name}: {len(parts)} parts, {len(bm.faces)} faces")
     ob = mesh_object(name, bm, coll, "figure")
     ob["studio_name"] = sorted(parts)[0]  # a member of its colour layer, so the page can find that layer
@@ -200,6 +275,38 @@ def figure_facts(scene: bpy.types.Scene) -> dict | None:
         **({"mouse": sc.to_three_point(rig["mouse"])} if rig.get("mouse") else {}),
         # metres between key centres on the room's keyboard: [across, between rows]
         **({"keyPitch": rig["keyPitch"]} if rig.get("keyPitch") else {}),
+        # the desk's front edge across his hands, where he pushes off to roll away
+        **({"desk": {"edge": [sc.to_three_point(p) for p in rig["desk"]["edge"]]}} if rig.get("desk") else {}),
+        # where the chair goes to play the synths, Synth A's key line (low to high) and a reach point on Synth B
+        **(
+            {
+                "synth": {
+                    "seat": sc.to_three_point(rig["synth"]["seat"]),
+                    "keys": [sc.to_three_point(p) for p in rig["synth"]["keys"]],
+                    "upper": sc.to_three_point(rig["synth"]["upper"]),
+                }
+            }
+            if rig.get("synth")
+            else {}
+        ),
+        # where the guitar hangs: the bone's pivot (body centre) and its lowest and highest points
+        **(
+            {"guitar": {key: sc.to_three_point(rig["guitar"][key]) for key in ("centre", "bottom", "top")}}
+            if rig.get("guitar")
+            else {}
+        ),
+        # his skull (three.js centre; half-sizes across, front to back, up) and the headphones' linear colour
+        **(
+            {
+                "headphones": {
+                    "centre": sc.to_three_point(rig["headphones"]["centre"]),
+                    "radii": rig["headphones"]["radii"],
+                    "colour": rig["headphones"]["colour"],
+                }
+            }
+            if rig.get("headphones")
+            else {}
+        ),
     }
 
 
@@ -341,9 +448,15 @@ def main() -> None:
         live_copy(tree, coll, "tree")
     build_figure(scene, coll)
     export_glb(coll, args.glb)
-    sc.ensure_out_dir(os.path.dirname(args.facts))
+    out_dir = sc.ensure_out_dir(os.path.dirname(args.facts))
+    facts = scene_facts(scene)
+    import studio_motion  # Mixamo clips, fitted to him (only those downloaded)
+
+    motion = studio_motion.bake_clips(scene, out_dir)
+    if motion:
+        facts["motion"] = motion
     with open(args.facts, "w") as f:
-        json.dump(scene_facts(scene), f, indent=2)
+        json.dump(facts, f, indent=2)
     print(f"[export] facts -> {args.facts}")
 
 
