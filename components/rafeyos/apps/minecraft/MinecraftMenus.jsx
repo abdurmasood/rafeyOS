@@ -1,5 +1,10 @@
-// The title block, the pause and controls panels, and the controls list. Kept free of heavy imports: MinecraftApp shows
-// the title block while the scene's chunk is still loading, so nothing from the atlas or the engine may come along.
+// The title block, the pause, controls and death panels, and the controls list. Kept free of heavy imports: MinecraftApp
+// shows the title block while the scene's chunk is still loading, so nothing from the atlas or the engine may come along.
+import { useEffect, useState } from 'react'
+import { CAUSE, VITALS } from './logic/life/vitals'
+
+// Respawn waits out the engine's own delay (VITALS.RESPAWN_DELAY), with a frame or two to spare
+const RESPAWN_READY_AFTER = VITALS.RESPAWN_DELAY * 1000 + 100
 
 export const CONTROLS = Object.freeze([
   ['W A S D', 'Walk'],
@@ -71,3 +76,46 @@ export const ControlsPanel = ({ shown, onBack }) => (
     <button type="button" className="btn" onClick={onBack}>Back</button>
   </Panel>
 )
+
+/** @param {import('./logic/life/vitals').Cause | null} cause */
+export const deathTitle = (cause) => {
+  if (cause?.kind === CAUSE.DROWN) return 'You ran out of air'
+  if (cause?.kind === CAUSE.SHADE) return 'A shade got you'
+  if (cause?.kind === CAUSE.FALL) return `You fell ${cause.blocks} blocks`
+  return 'You died'
+}
+
+/** True once `shown` has held for `ms`; false again as soon as it goes. */
+const useHeldFor = (shown, ms) => {
+  const [held, setHeld] = useState(false)
+  useEffect(() => {
+    setHeld(false)
+    if (!shown) return undefined
+    const timer = setTimeout(() => setHeld(true), ms)
+    return () => clearTimeout(timer)
+  }, [shown, ms])
+  return held
+}
+
+/**
+ * How the player died, over the spot it happened. Respawn stays unpressable for a moment, so clicks meant for the
+ * game can't skip past it, but can take focus all along.
+ * @param {{
+ *   shown: boolean, cause: import('./logic/life/vitals').Cause | null, onRespawn: () => void,
+ *   respawnRef?: import('react').Ref<HTMLButtonElement>,
+ * }} props
+ */
+export const DeathPanel = ({ shown, cause, onRespawn, respawnRef }) => {
+  const ready = useHeldFor(shown, RESPAWN_READY_AFTER)
+  return (
+    <Panel name={deathTitle(cause)} shown={shown} className="bk-death">
+      <p>Your builds are kept.</p>
+      <button
+        type="button" className="btn sugg" ref={respawnRef} aria-disabled={!ready || undefined}
+        onClick={() => ready && onRespawn()}
+      >
+        Respawn
+      </button>
+    </Panel>
+  )
+}
