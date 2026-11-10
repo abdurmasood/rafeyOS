@@ -22,6 +22,9 @@ from mathutils import Matrix, Vector
 
 # Read only. The old web copy (room-night-web.blend) now holds an unrelated night-city scene.
 SOURCE_BLEND = "/Users/rafey/Blender/room-night.blend"
+# The figure: the free "Rigged Human Mannequin man (Rigify)" from Blendkit (asset c1983198-8cfc-4e4c-b836-078b21691403,
+# by Fasolka 3D, royalty-free). Kept outside the repo, like the room: the licence lets us use it, not hand the file out.
+MANNEQUIN_BLEND = "/Users/rafey/Blender/assets/rigged-human-mannequin.blend"
 OUT_DIR = "/Users/rafey/Blender/web-out"
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 PUBLIC_DIR = os.path.join(REPO_DIR, "public", "studio", "v1")
@@ -87,6 +90,16 @@ def assert_source_blend() -> None:
     """Fail fast unless the open file is the room this pipeline was built against."""
     if os.path.realpath(bpy.data.filepath) != os.path.realpath(SOURCE_BLEND):
         raise StudioPipelineError(f"Refusing to run on {bpy.data.filepath!r}; expected {SOURCE_BLEND!r}")
+
+
+def assert_mannequin() -> str:
+    """The figure's asset file, or a clear error saying where to get it."""
+    if not os.path.isfile(MANNEQUIN_BLEND):
+        raise StudioPipelineError(
+            f"Missing {MANNEQUIN_BLEND!r}: download the free 'Rigged Human Mannequin man (Rigify)' from Blendkit "
+            "(asset c1983198-8cfc-4e4c-b836-078b21691403) and save its .blend there"
+        )
+    return MANNEQUIN_BLEND
 
 
 def script_args(argv: Sequence[str] | None = None) -> list[str]:

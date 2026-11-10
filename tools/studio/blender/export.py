@@ -124,6 +124,21 @@ def bone_weights(point: Vector, chain: list[int], skeleton: list[Vector], blend:
 FIGURE_MESHES = {"figure": "figure_rafey", "backrest": "figure_backrest"}  # one per colour layer
 
 
+def painted_weights(ob: bpy.types.Object, depsgraph: bpy.types.Depsgraph, index: dict) -> tuple[bpy.types.Mesh, list]:
+    """A weight-painted part's evaluated mesh (world space) and, per vertex, its two strongest bones and their mix."""
+    mesh = bpy.data.meshes.new_from_object(ob.evaluated_get(depsgraph), preserve_all_data_layers=True, depsgraph=depsgraph)
+    mesh.transform(ob.matrix_world)
+    groups = {g.index: index[g.name] for g in ob.vertex_groups if g.name in index}
+    weights = []
+    for vert in mesh.vertices:
+        ranked = sorted(((e.weight, groups[e.group]) for e in vert.groups if e.group in groups and e.weight > 0), reverse=True)
+        if not ranked:
+            raise sc.StudioPipelineError(f"{ob.name}: vertex {vert.index} is moved by no bone")
+        (wa, a), (wb, b) = ranked[0], ranked[1] if len(ranked) > 1 else (0.0, ranked[0][1])
+        weights.append((a, b, wb / (wa + wb)))
+    return mesh, weights
+
+
 def build_figure_mesh(name: str, parts: dict, index: dict, coll: bpy.types.Collection) -> set[int]:
     """Live parts as one mesh; every vertex carries the two bones that move it and their mix."""
     depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -131,6 +146,15 @@ def build_figure_mesh(name: str, parts: dict, index: dict, coll: bpy.types.Colle
     layers = [bm.verts.layers.float.new(attr) for attr in ("_bone_a", "_bone_b", "_weight_b")]
     for part_name, part in parts.items():
         first = len(bm.verts)
+        if part.get("skin"):
+            mesh, weights = painted_weights(sc.obj(part_name), depsgraph, index)
+            bm.from_mesh(mesh)
+            bpy.data.meshes.remove(mesh)
+            bm.verts.ensure_lookup_table()
+            for vert, values in zip(bm.verts[first:], weights):
+                for layer, value in zip(layers, values):
+                    vert[layer] = value
+            continue
         append_world_mesh(bm, sc.obj(part_name), depsgraph)
         bm.verts.ensure_lookup_table()
         chain = [index[bone] for bone in part["chain"]]
