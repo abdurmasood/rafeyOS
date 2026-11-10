@@ -1,6 +1,7 @@
 // The world's own life, stepped by the engine every frame. Before the camera is set: the time of day, written into
-// the view for the fog and sky, the light on the blocks, the wind, and the tufts laid out around the player. After it
-// (and after any director shot): the clouds and fireflies around the camera, and the walking bob.
+// the view for the fog and sky, the light on the blocks, the wind, the tufts laid out around the player, and the
+// animals living round them. After it (and after any director shot): the clouds and fireflies around the camera, and
+// the walking bob.
 import { Color, Group } from 'three'
 import { createSkyClock, createSkyState, skyAt } from '@/components/rafeyos/apps/minecraft/logic/life/skyClock'
 import { createGround } from '@/components/rafeyos/apps/minecraft/logic/life/ground'
@@ -8,6 +9,9 @@ import { driftWater, swayLeaves } from '@/components/rafeyos/apps/minecraft/logi
 import { createClouds } from '@/components/rafeyos/apps/minecraft/logic/life/clouds'
 import { createTufts } from '@/components/rafeyos/apps/minecraft/logic/life/tufts'
 import { createFireflies } from '@/components/rafeyos/apps/minecraft/logic/life/fireflies'
+import { createHerds } from '@/components/rafeyos/apps/minecraft/logic/life/herds'
+import { createCreatureMeshes } from '@/components/rafeyos/apps/minecraft/logic/life/creatureMeshes'
+import { zoneAt } from '@/components/rafeyos/apps/minecraft/logic/mainland'
 
 const WHITE = new Color(0xffffff)
 // Water keeps a little of its own brightness at night, so the sea still reads under the moon
@@ -37,12 +41,15 @@ export const createLife = ({ view, world, startTime, reducedMotion = false }) =>
   const clouds = createClouds()
   const tufts = createTufts(ground, world, uniforms)
   const flies = createFireflies(ground, uniforms.time)
-  group.add(clouds.mesh, ...tufts.meshes, flies.points)
+  const herds = createHerds({ world, ground, zoneAt })
+  const creatures = createCreatureMeshes()
+  group.add(clouds.mesh, ...tufts.meshes, flies.points, ...creatures.meshes)
   view.scene.add(group)
   swayLeaves(view.materials.solid, uniforms)
   driftWater(view.materials.water, uniforms)
   let elapsed = 0
   let bob = 0
+  let populated = false
   const skyUniforms = view.sky.material.uniforms
 
   const applySky = () => {
@@ -59,6 +66,7 @@ export const createLife = ({ view, world, startTime, reducedMotion = false }) =>
     view.materials.solid.color.copy(sky.light)
     view.materials.water.color.copy(sky.light).lerp(WHITE, WATER_GLOW)
     tufts.material.color.copy(sky.light)
+    creatures.material.color.copy(sky.light)
     clouds.tint(sky)
   }
   const walkBob = (dt, player) => {
@@ -71,8 +79,16 @@ export const createLife = ({ view, world, startTime, reducedMotion = false }) =>
     view.camera.position.z -= Math.cos(bob) * BOB.SWAY * amount * Math.sin(player.yaw)
     view.camera.updateMatrixWorld()
   }
+  const stepAnimals = (dt, player) => {
+    if (!populated) {
+      herds.populate(player.pos)
+      populated = true
+    }
+    herds.update(dt, { x: player.pos.x, z: player.pos.z, speed: Math.hypot(player.vel.x, player.vel.z) })
+    creatures.draw(herds.animals, herds.gulls, sky.glow)
+  }
   return {
-    /** @param {number} dt @param {{ pos: { x: number, z: number } }} player */
+    /** @param {number} dt @param {{ pos: { x: number, z: number }, vel: { x: number, z: number } }} player */
     beforeView: (dt, player) => {
       elapsed += dt
       uniforms.time.value += dt * motion
@@ -81,6 +97,7 @@ export const createLife = ({ view, world, startTime, reducedMotion = false }) =>
       uniforms.sun.value = sky.glow
       applySky()
       tufts.update(player.pos)
+      stepAnimals(dt, player)
     },
     /**
      * @param {number} dt
@@ -99,11 +116,13 @@ export const createLife = ({ view, world, startTime, reducedMotion = false }) =>
       tufts.blockChanged(x, z)
     },
     time: () => clock.time(),
+    herds: () => herds,
     dispose: () => {
       group.removeFromParent()
       clouds.dispose()
       tufts.dispose()
       flies.dispose()
+      creatures.dispose()
     },
   }
 }
