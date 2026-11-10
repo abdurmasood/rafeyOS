@@ -56,7 +56,8 @@ describe('figure pose', () => {
 
   it('names an angle for the swivel, spine, head, hands and every finger joint', () => {
     const { angles } = poser(state(), 0)
-    const expected = ['swivel', 'spine', 'head', ...HANDS.flatMap((h) => [`hand_${h}`, ...FINGERS.flatMap((f) => [`${f}_${h}_a`, `${f}_${h}_b`])])]
+    const joints = (f, h) => ['a', 'b', 'c'].map((j) => `${f}_${h}_${j}`)
+    const expected = ['swivel', 'spine', 'head', ...HANDS.flatMap((h) => [`hand_${h}`, ...FINGERS.flatMap((f) => joints(f, h))])]
     expect(Object.keys(angles).sort()).toEqual(expected.sort())
   })
 
@@ -73,6 +74,14 @@ describe('figure pose', () => {
     expect(angles.middle_L_a[0]).toBeCloseTo(-POSE.fingerPress[0])
     expect(angles.middle_L_b[0]).toBeCloseTo(-POSE.fingerPress[1])
     expect(reach.L.palm).toEqual([0, 0])
+  })
+
+  it('bends each fingertip joint with its middle joint, as real fingers do', () => {
+    const strokes = new Float32Array(10)
+    strokes[strokeSlot('R', 'ring')] = 1
+    const { angles } = poser(state({ strokes }), 1)
+    expect(angles.ring_R_c[0]).toBeCloseTo(angles.ring_R_b[0] * POSE.tipFollows)
+    expect(angles.ring_R_c[0]).toBeLessThan(0)
   })
 
   it('stretches a finger toward a key further away and turns it toward one across', () => {
