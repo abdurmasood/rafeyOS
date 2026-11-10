@@ -44,4 +44,20 @@ describe('clicking at a shade', () => {
 
     expect(life.shades().shades).toEqual([])
   })
+
+  it('hits a creeper in reach in place of the block behind it', () => {
+    const life = lifeOnAField()
+    life.creepers().add(100.5, 31, 103)
+
+    expect(life.hitShade({ eye: EYE, look: AHEAD, target: { x: 100, y: 32, z: 106 } })).toBe(true)
+  })
+
+  it('clears every creeper when the player respawns', () => {
+    const life = lifeOnAField()
+    life.creepers().add(100.5, 31, 110)
+
+    life.respawned()
+
+    expect(life.creepers().creepers).toEqual([])
+  })
 })

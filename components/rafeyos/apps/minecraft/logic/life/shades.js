@@ -251,6 +251,25 @@ export const createShades = ({ world, ground, random = Math.random }) => {
      * @param {number} reach
      * @returns {boolean} whether one was hit
      */
+    /**
+     * Distance along `dir` to the nearest risen shade within `reach`, or null.
+     * @param {{ x: number, y: number, z: number }} origin
+     * @param {{ x: number, y: number, z: number }} dir
+     * @param {number} reach
+     * @returns {number | null}
+     */
+    aimDistance: (origin, dir, reach) => {
+      let bestAlong = null
+      for (const shade of shades) {
+        if (shade.rise < 1) continue
+        const tx = shade.x - origin.x, ty = shade.y + 0.9 - origin.y, tz = shade.z - origin.z
+        const along = tx * dir.x + ty * dir.y + tz * dir.z
+        if (along < 0 || along > reach) continue
+        const off = Math.hypot(tx - dir.x * along, ty - dir.y * along, tz - dir.z * along)
+        if (off < 0.75 && (bestAlong === null || along < bestAlong)) bestAlong = along
+      }
+      return bestAlong
+    },
     hit: (origin, dir, reach) => {
       let best = null, bestAlong = reach
       for (const shade of shades) {
