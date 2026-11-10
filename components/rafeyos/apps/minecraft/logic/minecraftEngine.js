@@ -11,14 +11,15 @@ import { mipChain } from './mipmaps'
 import { WORLD, inBounds } from './terrain'
 import { chunksTouching, createWorld } from './world'
 import { meshChunk } from './mesher'
-import { createPlayer, eyePosition, liftClear, lookDirection, overlapsBlock, stepPlayer, turn } from './physics'
+import { createPlayer, eyePosition, isSwimming, liftClear, lookDirection, overlapsBlock, stepPlayer, turn } from './physics'
 import { castRay } from './raycast'
 import { createMinecraftInput } from './minecraftInput'
 import { IDLE_DIRECTOR, applyShot, startPlaying } from './directorShot'
-import { FOG, SKY, seeWaterFromBelow, setAtmosphereAt } from './atmosphere'
+import { FOG, SKY, depthBelowSurface, seeWaterFromBelow, setAtmosphereAt } from './atmosphere'
 import { createSkyDome } from './skyDome'
 import { createHud } from './engineHud'
 import { createLoop } from './frameLoop'
+import { VITALS, createVitals, resetVitals, stepVitals } from './life/vitals'
 
 // Fog and the far plane both measure view-space depth, so ending the view just past full fog cuts off nothing visible
 const CAMERA_FAR = FOG.far + 8
@@ -267,6 +268,22 @@ const drawFrame = ({ renderer, view, chunks, wash }) => {
   wash.show(view.haze)
 }
 
+/**
+ * What the vitals need from a frame: the feet, whether standing, swimming, or with the eyes under the water's surface,
+ * and whether the game has the mouse.
+ */
+const sampleVitals = (player, world, playing) => ({
+  y: player.pos.y, onGround: player.onGround, inWater: isSwimming(player, world),
+  headUnder: depthBelowSurface(world, eyePosition(player)) > 0, playing,
+})
+
+/** The HUD patch for input going live or not; going live after a Respawn press is what clears the death panel. */
+const playingPatch = (playing, life) => {
+  if (!playing || !life.respawning) return { playing }
+  life.respawning = false
+  return { playing, dead: false, cause: null }
+}
+
 /** The browser can't make a WebGL context; the scene shows its "can't start" card for this and only this. */
 export class WebGLUnavailableError extends Error {
   /** @param {unknown} cause */
@@ -320,7 +337,7 @@ const createWash = (host, doc) => {
  *   host: HTMLElement, island: import('./terrain').Island,
  *   chunkArrays: Map<string, { solid: import('./mesher').MeshArrays, water: import('./mesher').MeshArrays }>,
  *   edits?: ReadonlyArray<[number, number]>,
- *   onHud?: (hud: { playing: boolean, selected: number, position: string }) => void,
+ *   onHud?: (hud: import('./engineHud').HudState) => void,
  *   onEdit?: (change: [number, number | null]) => void,
  *   createRenderer?: (canvas: HTMLCanvasElement) => object,
  *   requestFrame?: (run: (time: number) => void) => number, cancelFrame?: (id: number) => void,
@@ -331,7 +348,7 @@ const createWash = (host, doc) => {
  * }} options - `island` and `chunkArrays` come from the world loader (worldLoader.js), the chunks meshed with the
  *   same `edits`. The voxels are copied into a world of the engine's own: physics, aiming and edits read them here.
  *   `chunkArrays` is consumed: the engine empties the map once its first meshes are built, so don't reuse it.
- * @returns {{ setActive: (active: boolean) => void, setPaused: (paused: boolean) => void, capture: () => void, play: (onArrive: () => void) => void, toTitle: () => void, dispose: () => void }}
+ * @returns {{ setActive: (active: boolean) => void, setPaused: (paused: boolean) => void, capture: () => void, play: (onArrive: () => void) => void, toTitle: () => void, respawn: () => void, dispose: () => void }}
  * @throws {WebGLUnavailableError} when the browser can't make a WebGL context; anything else thrown while building
  *   comes after the canvas and renderer went again, so nothing is left behind
  */
@@ -373,21 +390,48 @@ const assembleEngine = ({
   const hud = createHud(onHud, player)
   let target = null
   const editor = createEditor({ world, player, chunks, getTarget: () => target, getSelected: hud.selected, onEdit })
+  const vitals = createVitals()
+  const life = { respawning: false }
   const input = createMinecraftInput({ canvas, doc, win, now, on: {
     turn: (dx, dy) => turn(player, dx, dy),
     breakBlock: editor.breakBlock,
     placeBlock: editor.placeBlock,
     select: hud.select,
     scroll: (step) => hud.select(hud.selected() + step),
-    playingChanged: (playing) => hud.emit({ playing }),
+    playingChanged: (playing) => hud.emit(playingPatch(playing, life)),
   } })
   releases.push(input.dispose)
   releases.push(...[watchSize({ host, win, renderer, camera: view.camera }), watchContextRestore(canvas, chunks)])
-  // Back to the spawn point, standing clear of anything built on it
-  const respawnPlayer = () => Object.assign(player, liftClear(createPlayer(island.spawn), world))
+  // Back to the spawn point, standing clear of anything built on it, with no fall counting toward the landing
+  const respawnPlayer = () => {
+    Object.assign(player, liftClear(createPlayer(island.spawn), world))
+    vitals.peakY = null
+  }
+  // The death panel first, then the mouse let go: told the other way round, the pause panel would flash up between
+  const die = () => {
+    hud.emit({ dead: true, cause: vitals.cause, health: 0 })
+    input.setMuted(true)
+    if (doc.pointerLockElement === canvas) doc.exitPointerLock?.()
+  }
+  const respawn = () => {
+    if (!hud.isDead()) return
+    if (!life.respawning) {
+      if (vitals.deadFor < VITALS.RESPAWN_DELAY) return
+      respawnPlayer()
+      resetVitals(vitals)
+      hud.vitals(vitals)
+      life.respawning = true
+    }
+    // Safe to press again: if the browser refused the mouse, the death panel stays and this asks once more
+    input.setMuted(false)
+    input.capture()
+  }
   const loop = createLoop({ requestFrame, cancelFrame, now, step: (time, dt) => {
     stepPlayer(player, world, input.moveInput(), dt)
     if (player.pos.y < FALL_LIMIT) respawnPlayer()
+    const events = stepVitals(vitals, sampleVitals(player, world, input.isPlaying()), dt)
+    if (events.some((event) => event.type === 'dead')) die()
+    hud.vitals(vitals)
     input.tick(time)
     target = updateView(view, world, player)
     const shot = director.frame({ dt, eye: eyePosition(player), yaw: player.yaw, pitch: player.pitch })
@@ -405,6 +449,7 @@ const assembleEngine = ({
     capture: () => input.capture(),
     play: (onArrive) => startPlaying({ input, director }, onArrive),
     toTitle: () => director.toOrbit(),
+    respawn,
     dispose: release,
   })
 }
