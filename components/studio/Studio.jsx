@@ -36,7 +36,7 @@ function NeedsWebGL({ reason }) {
     reason === STUDIO_SUPPORT.SMALL_TEXTURES ? 'this GPU cannot hold the room’s textures' : 'WebGL 2 is not available here'
   return (
     <p className="text-[#8E8E8E] text-sm px-6 text-center" style={{ fontFamily: TERMINAL_FONT }}>
-      studio: {detail}. Try a desktop browser with hardware acceleration on.
+      rafey: {detail}. Try a desktop browser with hardware acceleration on.
     </p>
   )
 }
@@ -87,7 +87,7 @@ function StudioCanvas({ space, paused }) {
   )
 }
 
-/** The night room, live, filling the box it's given (the Studio window). `paused` stops drawing, e.g. while minimized. */
+/** The night room, live, filling the box it's given (the "Rafey" app's window). `paused` stops drawing, e.g. while minimized. */
 export function Studio({ paused = false }) {
   const [support] = useState(() => detectStudioSupport())
   const boxRef = useRef(null)

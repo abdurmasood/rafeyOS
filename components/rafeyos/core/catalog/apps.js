@@ -78,7 +78,7 @@ export const APPS = Object.freeze({
   [APP.SETTINGS]: app({ id: APP.SETTINGS, name: 'Settings', size: [780, 540], minSize: [600, 420] }),
   [APP.PROPERTIES]: app({ id: APP.PROPERTIES, name: 'Properties', size: [340, 430], minSize: [340, 380], inDock: false }),
   [APP.MINECRAFT]: app({ id: APP.MINECRAFT, name: 'Minecraft', size: [960, 640], minSize: [640, 480] }),
-  [APP.STUDIO]: app({ id: APP.STUDIO, name: 'Studio', size: [1100, 720], minSize: [560, 400] }),
+  [APP.STUDIO]: app({ id: APP.STUDIO, name: 'Rafey', size: [1100, 720], minSize: [560, 400] }), // his night room, live
 })
 
 export const APP_IDS = Object.freeze(Object.keys(APPS))

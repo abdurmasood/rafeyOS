@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Build the Studio app's assets (rafeyOS) from room-night.blend.
+# Build the night room's assets (the "Rafey" app in rafeyOS) from room-night.blend.
 #
 #   tools/studio/build.sh draft   quick look: fewer samples, a quarter of the pixels; the app shows "draft"
-#   tools/studio/build.sh final   what ships (~18 min); don't keep the Studio app open while it renders, it jitters
+#   tools/studio/build.sh final   what ships (~18 min); don't keep the Rafey app open while it renders, it jitters
 #
 # Save in Blender first: this reads the file from disk. Nothing here ever saves it.
 set -euo pipefail
@@ -48,4 +48,4 @@ cp "$OUT/studio.glb" "$REPO/public/studio/v1/studio.glb"
 if [ "$(shasum -a 256 "$SOURCE" | cut -d' ' -f1)" != "$before" ]; then
   echo "WARNING: $SOURCE changed during the build (saved in Blender meanwhile?)" >&2
 fi
-echo "done in $((SECONDS / 60)) min $((SECONDS % 60)) s. Reopen Studio in rafeyOS (/os?app=studio)."
+echo "done in $((SECONDS / 60)) min $((SECONDS % 60)) s. Reopen Rafey in rafeyOS (/os?app=studio)."

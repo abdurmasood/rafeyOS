@@ -21,34 +21,34 @@ const roomIn = (win) => within(win).getByTestId('studio-room')
 const openFromAppGrid = async () => {
   const view = renderDesktop()
   fireEvent.click(within(dock()).getByRole('button', { name: 'Show Apps' }))
-  fireEvent.click(within(screen.getByRole('group', { name: 'Applications' })).getByRole('button', { name: 'Studio' }))
+  fireEvent.click(within(screen.getByRole('group', { name: 'Applications' })).getByRole('button', { name: 'Rafey' }))
   await settle()
   const [win] = windowsOf(view.container, 'studio')
   return { ...view, win, ui: within(win) }
 }
 
 describe('Studio app', () => {
-  it('opens from the app grid: the live room under a "Studio" header bar', async () => {
+  it('opens from the app grid: the live room under a "Rafey" header bar', async () => {
     const { container, win } = await openFromAppGrid()
     expect(windowsOf(container, 'studio')).toHaveLength(1)
-    expect(headerTitle(win)).toBe('Studio')
-    expect(win.getAttribute('aria-label')).toBe('Studio')
+    expect(headerTitle(win)).toBe('Rafey')
+    expect(win.getAttribute('aria-label')).toBe('Rafey')
     expect(roomIn(win).dataset.paused).toBe('false')
   })
 
   it('is not pinned to the dock, but shows there while it is open', async () => {
     renderDesktop()
-    expect(within(dock()).queryByRole('button', { name: 'Studio' })).toBeNull()
+    expect(within(dock()).queryByRole('button', { name: 'Rafey' })).toBeNull()
     cleanup()
     await openFromAppGrid()
-    expect(within(dock()).getByRole('button', { name: 'Studio' })).toBeTruthy()
+    expect(within(dock()).getByRole('button', { name: 'Rafey' })).toBeTruthy()
   })
 
   it('stops drawing the room while minimized, and starts again when restored', async () => {
     const { win, ui } = await openFromAppGrid()
     fireEvent.click(ui.getByRole('button', { name: 'Minimize' }))
     expect(roomIn(win).dataset.paused).toBe('true')
-    clickDock('Studio')
+    clickDock('Rafey')
     expect(roomIn(win).dataset.paused).toBe('false')
   })
 

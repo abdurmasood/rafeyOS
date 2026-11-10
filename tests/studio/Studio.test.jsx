@@ -96,7 +96,7 @@ describe('Studio', () => {
     support.value = 'no-webgl2'
     render(<Studio />)
     expect(screen.queryByTestId('canvas')).toBeNull()
-    expect(screen.getByText(/studio: WebGL 2 is not available here/)).toBeTruthy()
+    expect(screen.getByText(/rafey: WebGL 2 is not available here/)).toBeTruthy()
   })
 
   it('explains when the GPU cannot hold the plates', () => {
