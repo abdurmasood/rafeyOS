@@ -1,9 +1,8 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { PerformanceMonitor } from '@react-three/drei'
-import TerminalIcon from '@/components/projects/TerminalIcon'
 import { canvasBox, dprFor } from '@/lib/studio/camera'
 import { ASPECT_RANGE, BUILD_QUALITY, REF_ROWS, manifest } from '@/lib/studio/manifest'
 import { QUALITY_EVENTS, TIERS, TOP_TIER, nextTier } from '@/lib/studio/quality'
@@ -18,24 +17,18 @@ const MONITOR_SETTLE_MS = 3000
 const BACKGROUND = `rgb(${manifest.background.map((channel) => Math.round(channel * 255)).join(' ')})`
 const GL_OPTIONS = Object.freeze({ antialias: true, alpha: false, stencil: false, powerPreference: 'high-performance' })
 
-const useViewport = () => {
-  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
+/** The size of the box the room lives in (its window), followed as the window is resized. */
+const useBoxSize = (ref) => {
+  const [size, setSize] = useState({ width: 0, height: 0 })
   useEffect(() => {
-    const update = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [])
-  return viewport
-}
-
-const useEscape = (onExit) => {
-  useEffect(() => {
-    const onKey = (event) => {
-      if (event.key === 'Escape') onExit()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onExit])
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      setSize({ width, height })
+    })
+    observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [ref])
+  return size
 }
 
 function NeedsWebGL({ reason }) {
@@ -71,19 +64,18 @@ const useSettled = (ready) => {
   return settled
 }
 
-function StudioCanvas() {
-  const viewport = useViewport()
+function StudioCanvas({ space, paused }) {
   const [ready, setReady] = useState(false)
   const onReady = useCallback(() => setReady(true), [])
   const settled = useSettled(ready)
   const { quality, onDecline, onIncline, onFallback } = useQualityTier()
-  const box = canvasBox(viewport, ASPECT_RANGE)
+  const box = canvasBox(space, ASPECT_RANGE)
   const dpr = dprFor({ box, deviceDpr: window.devicePixelRatio, refRows: REF_ROWS, perf: quality.dprFactor })
   return (
     <div
       style={{ width: box.width, height: box.height, opacity: ready ? 1 : 0, transition: `opacity ${FADE_MS}ms ease` }}
     >
-      <Canvas flat linear dpr={dpr} gl={GL_OPTIONS}>
+      <Canvas flat linear dpr={dpr} gl={GL_OPTIONS} frameloop={paused ? 'never' : 'always'}>
         <StudioCamera />
         <Suspense fallback={null}>
           <StudioScene onReady={onReady} quality={quality} />
@@ -94,14 +86,19 @@ function StudioCanvas() {
   )
 }
 
-/** The night room, live. Esc or the terminal icon leaves. */
-export function Studio({ onExit }) {
+/** The night room, live, filling the box it's given (the Studio window). `paused` stops drawing, e.g. while minimized. */
+export function Studio({ paused = false }) {
   const [support] = useState(() => detectStudioSupport())
-  useEscape(onExit)
+  const boxRef = useRef(null)
+  const space = useBoxSize(boxRef)
+  const room = space.width > 0 && space.height > 0 && <StudioCanvas space={space} paused={paused} />
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-hidden" style={{ background: BACKGROUND }}>
-      {support === STUDIO_SUPPORT.OK ? <StudioCanvas /> : <NeedsWebGL reason={support} />}
-      <TerminalIcon onClick={onExit} />
+    <div
+      ref={boxRef}
+      className="absolute inset-0 flex items-center justify-center overflow-hidden"
+      style={{ background: BACKGROUND }}
+    >
+      {support === STUDIO_SUPPORT.OK ? room : <NeedsWebGL reason={support} />}
       {manifest.quality === BUILD_QUALITY.DRAFT && (
         <p className="absolute top-4 right-5 m-0 text-xs text-[#8E8E8E]" style={{ fontFamily: TERMINAL_FONT }}>
           draft
