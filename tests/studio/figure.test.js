@@ -288,8 +288,27 @@ describe('his whole session, posed', () => {
     const bones = manifest.figure.bones
     const at = (name) => new Vector3(...bones.find((b) => b.name === name).pivot).applyMatrix4(rig.matrices[bones.findIndex((b) => b.name === name)])
     const [shoulder, elbow, wrist] = ['shoulder_R', 'elbow_R', 'hand_R'].map(at)
-    expect(wrist.distanceTo(new Vector3(...reach.R.target))).toBeLessThan(1e-3)
+    expect(wrist.distanceTo(new Vector3(...reach.R.target))).toBeLessThan(3e-3) // soft IK: a hair short at full stretch
     const bend = elbow.clone().sub(shoulder).angleTo(wrist.clone().sub(elbow))
     expect(bend).toBeGreaterThan(0.15) // not locked straight
+  })
+})
+
+describe('the chair rolling', () => {
+  it('carries everything from the root: turned about the gas lift, then slid across the floor', () => {
+    const rig = createFigureRig(BONES)
+    rig.pose({}, null, { offset: [1, 0, 0], yaw: Math.PI / 2 })
+    // the swivel axis (0, 0.4, 0) only slides; the head, ahead of it, swings round a quarter turn first
+    expect(posed(rig, 'swivel').toArray().map((v) => +v.toFixed(6))).toEqual([1, 0.4, 0])
+    const head = posed(rig, 'head')
+    expect(head.x).toBeCloseTo(1 - 0.1, 6)
+    expect(head.z).toBeCloseTo(0, 6)
+  })
+
+  it('can shrink a bone away about its pivot (headphones off his neck)', () => {
+    const rig = createFigureRig(BONES)
+    rig.pose({ head: [0, 0, 0, 0] })
+    const index = BONES.findIndex((b) => b.name === 'head')
+    expect(new Vector3(0.05, 1.1, -0.1).applyMatrix4(rig.matrices[index]).distanceTo(pivotOf('head'))).toBeLessThan(1e-9)
   })
 })
