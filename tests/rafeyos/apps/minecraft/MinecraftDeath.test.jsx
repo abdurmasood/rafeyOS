@@ -69,6 +69,7 @@ describe('dying', () => {
   it.each([
     [{ kind: 'drown' }, 'You ran out of air'],
     [{ kind: 'shade' }, 'A shade got you'],
+    [{ kind: 'creeper' }, 'A creeper got you'],
   ])('names a death by %o "%s"', async (cause, name) => {
     const { ui } = await openMinecraft()
     enterGame(ui)

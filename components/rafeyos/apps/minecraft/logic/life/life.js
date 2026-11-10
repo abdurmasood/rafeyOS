@@ -1,7 +1,7 @@
 // The world's own life, stepped by the engine every frame. Before the camera is set: the time of day, written into
 // the view for the fog and sky, the light on the blocks, the wind, the tufts laid out around the player, the animals
-// living round them, and after dark the shades hunting them. After it (and after any director shot): the clouds and
-// fireflies around the camera, and the walking bob.
+// living round them, and after dark the shades and creepers hunting them. After it (and after any director shot): the
+// clouds and fireflies around the camera, and the walking bob.
 import { Color, Group } from 'three'
 import { createSkyClock, createSkyState, skyAt } from '@/components/rafeyos/apps/minecraft/logic/life/skyClock'
 import { createGround } from '@/components/rafeyos/apps/minecraft/logic/life/ground'
@@ -13,6 +13,8 @@ import { createHerds } from '@/components/rafeyos/apps/minecraft/logic/life/herd
 import { createCreatureMeshes } from '@/components/rafeyos/apps/minecraft/logic/life/creatureMeshes'
 import { createShades } from '@/components/rafeyos/apps/minecraft/logic/life/shades'
 import { createShadeMeshes } from '@/components/rafeyos/apps/minecraft/logic/life/shadeMeshes'
+import { createCreepers } from '@/components/rafeyos/apps/minecraft/logic/life/creepers'
+import { createCreeperMeshes } from '@/components/rafeyos/apps/minecraft/logic/life/creeperMeshes'
 import { zoneAt } from '@/components/rafeyos/apps/minecraft/logic/mainland'
 
 const WHITE = new Color(0xffffff)
@@ -50,11 +52,12 @@ const windAt = (t) => 0.8 + 0.45 * Math.sin(t * 0.21) + 0.2 * Math.sin(t * 0.77)
  * @param {{
  *   view: object, world: object, startTime?: number, reducedMotion?: boolean,
  *   onBite?: (shade: import('./shades').Shade) => void,
+ *   onBoom?: (creeper: import('./creepers').Creeper) => void,
  * }} options - `view`: the engine's view (scene, sky, materials, camera and the colours setAtmosphereAt reads);
  *   `startTime`: the time of day to start at, a fraction from midnight; `reducedMotion`: hold the wind, water, clouds
- *   and fireflies still, and drop the bob; `onBite`: a shade has bitten the player
+ *   and fireflies still, and drop the bob; `onBite`: a shade has bitten the player; `onBoom`: a creeper has exploded
  */
-export const createLife = ({ view, world, startTime, reducedMotion = false, onBite = () => {} }) => {
+export const createLife = ({ view, world, startTime, reducedMotion = false, onBite = () => {}, onBoom = () => {} }) => {
   const motion = reducedMotion ? 0 : 1
   const clock = createSkyClock(startTime)
   const sky = createSkyState()
@@ -69,7 +72,12 @@ export const createLife = ({ view, world, startTime, reducedMotion = false, onBi
   const creatures = createCreatureMeshes()
   const shades = createShades({ world, ground })
   const shadeMeshes = createShadeMeshes()
-  group.add(clouds.mesh, ...tufts.meshes, flies.points, ...creatures.meshes, ...shadeMeshes.meshes, shadeMeshes.glow)
+  const creepers = createCreepers({ world, ground })
+  const creeperMeshes = createCreeperMeshes()
+  group.add(
+    clouds.mesh, ...tufts.meshes, flies.points, ...creatures.meshes,
+    ...shadeMeshes.meshes, shadeMeshes.glow, ...creeperMeshes.meshes,
+  )
   view.scene.add(group)
   swayLeaves(view.materials.solid, uniforms)
   driftWater(view.materials.water, uniforms)
@@ -93,6 +101,7 @@ export const createLife = ({ view, world, startTime, reducedMotion = false, onBi
     view.materials.water.color.copy(sky.light).lerp(WHITE, WATER_GLOW)
     tufts.material.color.copy(sky.light)
     creatures.material.color.copy(sky.light)
+    creeperMeshes.material.color.copy(sky.light)
     clouds.tint(sky)
   }
   const walkBob = (dt, player) => {
@@ -129,14 +138,25 @@ export const createLife = ({ view, world, startTime, reducedMotion = false, onBi
       stepAnimals(dt, player)
       shades.update(dt, { player, eye, night: sky.night, playing, swimming, time: elapsed, onBite })
       shadeMeshes.draw(shades.shades, dt, sky.light)
+      creepers.update(dt, { player, eye, night: sky.night, playing, swimming, time: elapsed, onBoom })
+      creeperMeshes.draw(creepers.creepers, dt, sky.light)
     },
     /**
-     * A left click: hits the shade it points at, if one is nearer than the block it's aimed at. True if it did, so the
-     * block behind is left alone.
+     * A left click: hits the nearer shade or creeper along the look, if one is nearer than the aimed-at block.
      * @param {{ eye: object, look: object, target: { x: number, y: number, z: number } | null }} aim
      */
-    hitShade: ({ eye, look, target }) => shades.hit(eye, look, target ? Math.min(HIT_REACH, entryDistance(eye, look, target)) : HIT_REACH),
-    respawned: () => shades.respawned(),
+    hitShade: ({ eye, look, target }) => {
+      const reach = target ? Math.min(HIT_REACH, entryDistance(eye, look, target)) : HIT_REACH
+      const shadeDist = shades.aimDistance(eye, look, reach)
+      const creeperDist = creepers.aimDistance(eye, look, reach)
+      if (creeperDist !== null && (shadeDist === null || creeperDist <= shadeDist)) return creepers.hit(eye, look, reach)
+      if (shadeDist !== null) return shades.hit(eye, look, reach)
+      return false
+    },
+    respawned: () => {
+      shades.respawned()
+      creepers.respawned()
+    },
     /**
      * @param {number} dt
      * @param {{ shot: object | null, player: object, playing: boolean }} frame - `shot`: the director's, if it has the
@@ -156,6 +176,7 @@ export const createLife = ({ view, world, startTime, reducedMotion = false, onBi
     time: () => clock.time(),
     herds: () => herds,
     shades: () => shades,
+    creepers: () => creepers,
     dispose: () => {
       group.removeFromParent()
       clouds.dispose()
@@ -163,6 +184,7 @@ export const createLife = ({ view, world, startTime, reducedMotion = false, onBi
       flies.dispose()
       creatures.dispose()
       shadeMeshes.dispose()
+      creeperMeshes.dispose()
     },
   }
 }

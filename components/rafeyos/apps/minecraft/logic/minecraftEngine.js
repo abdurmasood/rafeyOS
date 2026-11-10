@@ -21,6 +21,7 @@ import { createHud } from './engineHud'
 import { createLoop } from './frameLoop'
 import { CAUSE, VITALS, createVitals, hurt, resetVitals, stepVitals } from './life/vitals'
 import { SHADES } from './life/shades'
+import { CREEPERS, blastBlocks } from './life/creepers'
 import { createLife } from './life/life'
 
 // Fog and the far plane both measure view-space depth, so ending the view just past full fog cuts off nothing visible
@@ -393,15 +394,56 @@ const assembleEngine = ({
   releases.push(view.dispose, wash.remove)
   const chunks = createChunks(view.scene, world, view.materials, chunkArrays)
   releases.push(chunks.dispose)
-  const life = createLife({ view, world, startTime, reducedMotion, onBite: (shade) => bitten(shade) })
-  releases.push(life.dispose)
-  const shotFog = { clear: FOG, setAt: (eye) => setAtmosphereAt(view, world, eye) }
-  const hud = createHud(onHud, player)
-  let target = null
-  const editor = createEditor({ world, player, chunks, life, getTarget: () => target, getSelected: hud.selected, onEdit })
   const vitals = createVitals()
   const death = { respawning: false }
-  const input = createMinecraftInput({ canvas, doc, win, now, on: {
+  let target = null
+  /** @type {ReturnType<typeof createMinecraftInput> | null} */
+  let input = null
+  const shotFog = { clear: FOG, setAt: (eye) => setAtmosphereAt(view, world, eye) }
+  const hud = createHud(onHud, player)
+  const die = () => {
+    hud.emit({ dead: true, cause: vitals.cause, health: 0 })
+    input?.setMuted(true)
+    if (doc.pointerLockElement === canvas) doc.exitPointerLock?.()
+  }
+  // A shade's bite: a heart and a half, and a shove away from it
+  const bitten = (shade) => {
+    const away = Math.atan2(player.pos.x - shade.x, player.pos.z - shade.z)
+    player.vel.x += Math.sin(away) * 6
+    player.vel.z += Math.cos(away) * 6
+    player.vel.y = 5
+    if (hurt(vitals, SHADES.BITE, { kind: CAUSE.SHADE }).some((event) => event.type === 'dead')) die()
+  }
+  /** @type {{ blockChanged: (x: number, z: number) => void } | null} */
+  let life = null
+  /** Creeper boom: hurt if in range, carve a crater through the same edit path as breaking blocks. */
+  const boomed = (creeper) => {
+    const dx = player.pos.x - creeper.x, dy = player.pos.y - creeper.y, dz = player.pos.z - creeper.z
+    const dist = Math.hypot(dx, dy, dz)
+    if (dist <= CREEPERS.BLAST_RADIUS) {
+      const away = Math.atan2(dx, dz)
+      const push = 10 * (1 - dist / CREEPERS.BLAST_RADIUS)
+      player.vel.x += Math.sin(away) * push
+      player.vel.z += Math.cos(away) * push
+      player.vel.y = 6 * (1 - dist / CREEPERS.BLAST_RADIUS)
+      if (hurt(vitals, CREEPERS.BLAST_DAMAGE, { kind: CAUSE.CREEPER }).some((event) => event.type === 'dead')) die()
+    }
+    for (const cell of blastBlocks(creeper, CREEPERS.BLAST_RADIUS, world.get)) {
+      const edit = world.set(cell.x, cell.y, cell.z, BLOCK.AIR)
+      if (!edit) continue
+      chunksTouching(cell.x, cell.z).forEach(([cx, cz]) => chunks.rebuild(cx, cz))
+      life?.blockChanged(cell.x, cell.z)
+      onEdit(edit)
+    }
+  }
+  life = createLife({
+    view, world, startTime, reducedMotion,
+    onBite: (shade) => bitten(shade),
+    onBoom: (creeper) => boomed(creeper),
+  })
+  releases.push(life.dispose)
+  const editor = createEditor({ world, player, chunks, life, getTarget: () => target, getSelected: hud.selected, onEdit })
+  input = createMinecraftInput({ canvas, doc, win, now, on: {
     turn: (dx, dy) => turn(player, dx, dy),
     breakBlock: () => {
       if (!life.hitShade({ eye: eyePosition(player), look: lookDirection(player), target })) editor.breakBlock()
@@ -417,20 +459,6 @@ const assembleEngine = ({
   const respawnPlayer = () => {
     Object.assign(player, liftClear(createPlayer(island.spawn), world))
     vitals.peakY = null
-  }
-  // The death panel first, then the mouse let go: told the other way round, the pause panel would flash up between
-  const die = () => {
-    hud.emit({ dead: true, cause: vitals.cause, health: 0 })
-    input.setMuted(true)
-    if (doc.pointerLockElement === canvas) doc.exitPointerLock?.()
-  }
-  // A shade's bite: a heart and a half, and a shove away from it
-  const bitten = (shade) => {
-    const away = Math.atan2(player.pos.x - shade.x, player.pos.z - shade.z)
-    player.vel.x += Math.sin(away) * 6
-    player.vel.z += Math.cos(away) * 6
-    player.vel.y = 5
-    if (hurt(vitals, SHADES.BITE, { kind: CAUSE.SHADE }).some((event) => event.type === 'dead')) die()
   }
   const respawn = () => {
     if (!hud.isDead()) return

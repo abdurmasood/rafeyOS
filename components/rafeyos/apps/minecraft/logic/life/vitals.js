@@ -21,7 +21,7 @@ export const VITALS = Object.freeze({
   RESPAWN_DELAY: 1.5,
 })
 
-export const CAUSE = Object.freeze({ FALL: 'fall', DROWN: 'drown', SHADE: 'shade' })
+export const CAUSE = Object.freeze({ FALL: 'fall', DROWN: 'drown', SHADE: 'shade', CREEPER: 'creeper' })
 
 /**
  * @typedef {{ kind: string, blocks?: number }} Cause - blocks: how far a fatal fall dropped
