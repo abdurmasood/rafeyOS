@@ -38,11 +38,11 @@ describe('ps', () => {
   })
 
   it('maps every app to its process name', () => {
-    const apps = ['files', 'properties', 'editor', 'music', 'settings', 'mail', 'projects', 'terminal']
+    const apps = ['files', 'properties', 'editor', 'music', 'settings', 'mail', 'minecraft', 'terminal']
     const processes = windowProcesses({ windows: apps.map((appId, index) => ({ id: index + 1, appId })), nextId: 9 }, 8)
 
     expect(processes.list.map(({ cmd }) => cmd)).toEqual([
-      'nautilus', 'nautilus', 'gnome-text-editor', 'gnome-music', 'gnome-control-center', 'geary', 'projects', 'bash',
+      'nautilus', 'nautilus', 'gnome-text-editor', 'gnome-music', 'gnome-control-center', 'geary', 'minecraft', 'bash',
     ])
     expect(processes).toMatchObject({ self: 1008, next: 1009 })
   })

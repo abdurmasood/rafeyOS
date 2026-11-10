@@ -72,9 +72,6 @@ function ActivePicker({ onDone, ownsKey }) {
       } else if (event.key === 'Enter') {
         event.preventDefault()
         open(selectedIndexRef.current)
-      } else if (isPlainKey(event, 'v')) {
-        event.preventDefault()
-        finish({ view3d: true })
       } else if (isPlainKey(event, 'q') || event.key === 'Escape' || (event.ctrlKey && event.key === 'c')) {
         event.preventDefault()
         finish({})
@@ -111,11 +108,10 @@ function ActivePicker({ onDone, ownsKey }) {
       </div>
       <div className="gap-half" />
       <p className="music-line dim player-keys">
-        <span className="player-key">↑↓</span> select · <span className="player-key">enter</span> open · <span className="player-key">v</span> 3D view · <span className="player-key">esc</span> quit
+        <span className="player-key">↑↓</span> select · <span className="player-key">enter</span> open · <span className="player-key">esc</span> quit
       </p>
       <div className="player-taps">
         <button type="button" onClick={() => open(selectedIndexRef.current)}>[ open ]</button>
-        <button type="button" onClick={() => finish({ view3d: true })} aria-label="Open the 3D projects view">[ 3D ]</button>
         <button type="button" onClick={() => finish({})}>[ quit ]</button>
       </div>
     </div>

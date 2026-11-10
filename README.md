@@ -1,6 +1,6 @@
 # rafeyOS — Web based Linux + Mac OS
 
-A terminal and an Ubuntu 24.04-style + Mac desktop that share one shell and one filesystem. Type commands at `/`, or point and click at `/os`. Projects open as a 3D scene. Everything you make stays in your browser.
+A terminal and an Ubuntu 24.04-style + Mac desktop that share one shell and one filesystem. Type commands at `/`, or point and click at `/os`. Everything you make stays in your browser.
 
 **[Open rafeyOS](https://rafey.ai)** — the terminal is the front door; run `os` for the desktop
 
@@ -9,9 +9,10 @@ A terminal and an Ubuntu 24.04-style + Mac desktop that share one shell and one 
 ### Terminal
 
 - Bash-like shell with pipes, `&&` `||` `;`, `>` `>>`, quotes, globs and `$VARS`
-- 61 commands, each with `--help`; `man <command>` works too
+- 62 commands, each with `--help`; `man <command>` works too
 - Tab completion, shared history and a built-in `nano`
 - Pickers for projects and blog posts, and a music player with a story timeline
+- `singularity` flies you around a black hole drawn in characters, each one a traced ray of light
 
 ### Filesystem
 
@@ -35,7 +36,6 @@ A terminal and an Ubuntu 24.04-style + Mac desktop that share one shell and one 
 - **Text Editor** — writes into your home folder
 - **Music** — Amberol-style player that keeps playing after you close it
 - **Mail** — compose window that sends through your mail app
-- **Projects** — five projects as wireframe shapes in a 3D scene
 - **Settings** — appearance, dock, sound, notifications, and an About page for Rafey's hardware
 
 ## Quick Start
@@ -48,16 +48,16 @@ visitor@rafey.ai:~$ echo "hi rafey" > ~/Desktop/hello.txt
 visitor@rafey.ai:~$ os
 ```
 
-`hello.txt` is now on the desktop. Run `projects --3d` for the 3D scene, or `help` for the rest.
+`hello.txt` is now on the desktop. Run `help` for the rest.
 
 ## Project Structure
 
 ```
-├── app/                  # Routes: / terminal, /os desktop, /projects 3D scene
+├── app/                  # Routes: / terminal, /os desktop
 ├── components/
 │   ├── home/             # The terminal at /, with nano and the pickers
 │   └── rafeyos/
-│       ├── apps/         # Files, Terminal, Editor, Music, Mail, Projects, Settings
+│       ├── apps/         # Files, Terminal, Editor, Music, Mail, Settings
 │       ├── core/         # Shell commands, virtual filesystem, themes, settings
 │       ├── shell/        # Top bar, dock, desktop icons, Activities, menus
 │       ├── wm/           # Window manager
@@ -65,7 +65,7 @@ visitor@rafey.ai:~$ os
 │       └── styles/       # Yaru-style CSS, scoped to /os
 ├── lib/                  # Content: bio, projects, blog, skills, music, contact
 ├── public/               # Favicon and the music track
-└── tests/                # Vitest suites for home, lib, projects and rafeyos
+└── tests/                # Vitest suites for home, lib and rafeyos
 ```
 
 ## Tech Stack
@@ -73,7 +73,6 @@ visitor@rafey.ai:~$ os
 - **Framework:** Next.js 14 (App Router), React 18
 - **3D:** three.js, React Three Fiber, drei
 - **Styling:** Tailwind CSS on `/`, scoped CSS for rafeyOS
-- **Motion:** Framer Motion
 - **Fonts:** JetBrains Mono, Ubuntu Sans
 - **Storage:** localStorage, synced across tabs
 - **Testing:** Vitest, Testing Library, jsdom

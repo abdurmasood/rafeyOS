@@ -5,6 +5,7 @@ import { NanoEditor } from '@/components/home/NanoEditor'
 import { BlogPicker } from '@/components/home/BlogOutput'
 import { ProjectPicker } from '@/components/home/ProjectsOutput'
 import { SkillRows } from '@/components/home/SkillsOutput'
+import { Singularity } from '@/components/singularity/Singularity'
 
 /** The homepage terminal's prompt: user and host coloured, @ and the path plain. */
 export const TerminalPrompt = ({ cwd }) => (
@@ -52,18 +53,21 @@ const PANELS = Object.freeze({
     <BlogPicker active={panel.active} slug={props.slug} onDone={({ slug }) => panel.onDone({ slug })} ownsKey={panel.ownsKey} />
   ),
   [PANEL_KINDS.SKILLS]: () => <SkillRows />,
-  // v opens the Projects window here; on the homepage it leaves for the /projects page
   [PANEL_KINDS.PROJECTS_PICKER]: ({ props, panel }) => (
     <ProjectPicker
       active={panel.active}
       chosenId={props.chosenId}
       ownsKey={panel.ownsKey}
-      onDone={({ chosenId, view3d }) => {
-        panel.onDone({ chosenId })
-        if (view3d) panel.openProjects3d()
-      }}
+      onDone={({ chosenId }) => panel.onDone({ chosenId })}
     />
   ),
+  // Covers the window's body while it runs; where there is no WebGL, what it leaves behind reads as dim output
+  [PANEL_KINDS.SINGULARITY]: ({ props, panel }) => {
+    const program = (
+      <Singularity active={panel.active} onDone={panel.onDone} ownsKey={panel.ownsKey} failed={props.failed} className="singularity-cover" />
+    )
+    return props.failed ? <div className="dm">{program}</div> : program
+  },
 })
 
 const PanelLine = ({ line, panel }) => {
@@ -97,10 +101,9 @@ const RENDERERS = Object.freeze({
 /**
  * One structured output line as React elements (no HTML strings).
  * @param {{ line: import('@/components/rafeyos/core/commands/lines').Line, panel?: { active: boolean, onDone: Function,
- *   cwd: string, shellFs: import('@/components/rafeyos/core/vfs/shellFs').ShellFs, ownsKey: (event: KeyboardEvent) => boolean,
- *   openProjects3d: () => void } }} props
+ *   cwd: string, shellFs: import('@/components/rafeyos/core/vfs/shellFs').ShellFs, ownsKey: (event: KeyboardEvent) => boolean } }} props
  *   `panel`, for a panel line only: whether it holds the keyboard, its finish, the folder and files nano works in,
- *   whether a key was typed in this window (the pickers listen on the whole page), and the projects picker's 3D view
+ *   and whether a key was typed in this window (the pickers listen on the whole page)
  */
 export const TerminalLine = memo(function TerminalLine({ line, panel }) {
   const Render = RENDERERS[line.type]

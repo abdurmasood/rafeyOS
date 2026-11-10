@@ -59,37 +59,6 @@ export const MailIcon = () => (
   </>
 )
 
-/** The wireframe sphere from the /projects scene, tilted, with a soft top-left light. */
-const WireGlobe = () => {
-  // Unique per instance, like the Music icon: the dock and the app grid can show it together
-  const gradientId = useId()
-  return (
-    <>
-      <defs>
-        <radialGradient id={gradientId} cx=".35" cy=".3" r=".9">
-          <stop offset="0" stopColor="#fff" stopOpacity=".22" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <circle cx="24" cy="24" r="13.5" fill={`url(#${gradientId})`} />
-      <g fill="none" stroke="#f2f2f2" strokeWidth="1.5" transform="rotate(-20 24 24)">
-        <circle cx="24" cy="24" r="13.5" strokeWidth="2" />
-        <ellipse cx="24" cy="24" rx="6.8" ry="13.5" />
-        <path d="M24 10.5v27" />
-        <ellipse cx="24" cy="24" rx="13.5" ry="4.2" />
-        <path d="M12.2 17.5a12 3.2 0 0 0 23.6 0M12.2 30.5a12 3.2 0 0 0 23.6 0" opacity=".7" />
-      </g>
-    </>
-  )
-}
-
-const ProjectsIcon = () => (
-  <>
-    <rect x="5" y="5" width="38" height="38" rx="9" fill="#141414" />
-    <WireGlobe />
-  </>
-)
-
 /** Rafey from behind, as he sits in the room: varsity red, white collar stripe, curly hair, headphones. */
 const RafeyFromBehind = () => (
   <>
@@ -223,7 +192,6 @@ const APP_ICON_BODIES = Object.freeze({
   [APP.EDITOR]: EditorIcon,
   [APP.MUSIC]: MusicIcon,
   [APP.MAIL]: MailIcon,
-  [APP.PROJECTS]: ProjectsIcon,
   [APP.MINECRAFT]: MinecraftIcon,
   [APP.STUDIO]: StudioIcon,
   [APP.SETTINGS]: SettingsIcon,
@@ -290,12 +258,6 @@ const MailTile = () => (
   </Tile>
 )
 
-const ProjectsTile = () => (
-  <Tile from="#2a2a2a" to="#0a0a0a" rim>
-    <WireGlobe />
-  </Tile>
-)
-
 /** Creeper face filling the launcher squircle. */
 const MinecraftTile = () => (
   <Tile from="#6f9f46" to="#4a7a2e" rim>
@@ -349,7 +311,6 @@ const APP_TILE_BODIES = Object.freeze({
   [APP.EDITOR]: EditorTile,
   [APP.MUSIC]: MusicTile,
   [APP.MAIL]: MailTile,
-  [APP.PROJECTS]: ProjectsTile,
   [APP.MINECRAFT]: MinecraftTile,
   [APP.STUDIO]: StudioTile,
   [APP.SETTINGS]: SettingsTile,

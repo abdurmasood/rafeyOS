@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import './Terminal.css';
 import { useTerminal } from './TerminalProvider';
-import LoadingBar from './LoadingBar';
-import { loadProjects } from '@/lib/loadProjects';
 import { loadRafeyOS } from '@/lib/loadRafeyOS';
 import { forgetDesktop, rememberHandoff } from '@/components/rafeyos/session/logic/sessionStore';
 import { sessionStorageOrNull } from '@/lib/browserStorage';
@@ -21,8 +19,6 @@ import { useCursor } from '@/components/rafeyos/apps/terminal/logic/useCursor';
 
 // Long enough to read 'starting rOS…' while the chunk prefetches
 const RAFEYOS_ROUTE_DELAY_MS = 450;
-// The LoadingBar's run before the 3D projects page
-const PROJECTS_3D_DELAY_MS = 5500;
 // Offered as ghost text until the visitor runs their first command
 const STARTER_SUGGESTION = 'help';
 const COMPLETIONS = completionCommands(HOME_COMMANDS);
@@ -38,7 +34,7 @@ const ghostFor = ({ started, input, caretIndex }) => (
 );
 
 /** What the page does for the shell's homepage effects. */
-const usePageHandlers = (setShowLoadingBar) => {
+const usePageHandlers = () => {
   const router = useRouter();
   const rafeyosTimeoutRef = useRef(null);
   useEffect(() => () => clearTimeout(rafeyosTimeoutRef.current), []);
@@ -47,13 +43,6 @@ const usePageHandlers = (setShowLoadingBar) => {
     newTab: (href) => window.open(href, '_blank'),
     mailto: (href) => {
       window.location.href = href;
-    },
-    projects3d: () => {
-      setShowLoadingBar(true);
-      loadProjects();
-      setTimeout(() => {
-        router.push('/projects');
-      }, PROJECTS_3D_DELAY_MS);
     },
     // Clearing the session flag makes the command always boot; only a refresh inside rafeyOS skips it.
     // The window to open is kept only as the route starts, so an unmount that cancels it leaves nothing behind.
@@ -211,7 +200,7 @@ const Screen = ({ shell, onDone }) => (
         key={entry.id}
         line={entry.line}
         active={entry.id === shell.foregroundId}
-        onDone={(props, options) => onDone(entry.id, props, options)}
+        onDone={(props) => onDone(entry.id, props)}
         shell={shell}
       />
     ))}
@@ -244,8 +233,7 @@ const usePromptLine = ({ shell, inputRef }) => {
 };
 
 const Terminal = () => {
-  const [showLoadingBar, setShowLoadingBar] = useState(false);
-  const handlers = usePageHandlers(setShowLoadingBar);
+  const handlers = usePageHandlers();
   const shell = useHomeShell({ handlers });
   const terminalRef = useRef(null);
   const inputRef = useRef(null);
@@ -253,20 +241,12 @@ const Terminal = () => {
 
   useScrollToEnd(terminalRef, shell);
 
-  const finish = (entryId, props, { view3d } = {}) => {
-    shell.finish(entryId, props);
-    if (view3d) handlers.projects3d();
-  };
-
   // Don't steal focus while the visitor is selecting text to copy
   const focusInputOnClick = () => window.getSelection()?.isCollapsed && inputRef.current?.focus();
 
-  if (showLoadingBar) {
-    return <div className="terminal" ref={terminalRef} onClick={focusInputOnClick}><LoadingBar /></div>;
-  }
   return (
     <div className="terminal" ref={terminalRef} onClick={focusInputOnClick}>
-      <Screen shell={shell} onDone={finish} />
+      <Screen shell={shell} onDone={shell.finish} />
       {/* A playing track, the projects picker, the blog picker or nano owns the terminal */}
       {!shell.foregroundId && <PromptLine cwd={shell.cwd} question={shell.question} inputRef={inputRef} {...promptLine} />}
     </div>

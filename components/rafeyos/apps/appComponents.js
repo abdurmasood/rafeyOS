@@ -7,7 +7,6 @@ import { MailApp } from './mail/MailApp'
 import { PropertiesApp } from './properties/PropertiesApp'
 import { MusicApp } from './music/MusicApp'
 import { SettingsApp } from './settings/SettingsApp'
-import { ProjectsApp } from './projects/ProjectsApp'
 import { MinecraftApp } from './minecraft/MinecraftApp'
 import { StudioApp } from './studio/StudioApp'
 
@@ -17,7 +16,6 @@ export const APP_COMPONENTS = Object.freeze({
   [APP.EDITOR]: EditorApp,
   [APP.MUSIC]: MusicApp,
   [APP.MAIL]: MailApp,
-  [APP.PROJECTS]: ProjectsApp,
   [APP.SETTINGS]: SettingsApp,
   [APP.PROPERTIES]: PropertiesApp,
   [APP.MINECRAFT]: MinecraftApp,

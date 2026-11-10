@@ -50,6 +50,26 @@ const NANO = {
   description: ['Edit FILE, or a new buffer, in the terminal. ^O writes it out; ^X exits, asking first if it changed.'],
 }
 
+/** @type {Page} */
+const SINGULARITY = {
+  summary: 'fly around a black hole',
+  synopsis: ['singularity'],
+  description: [
+    'A real-time simulation, drawn in the terminal. Every character is one ray of light, traced along the path light',
+    'takes around a black hole that does not spin. Outside the edge you can always back out; past it you fall to the',
+    'centre.',
+    '',
+    'W, S          closer, further',
+    'A, D, ←, →    around',
+    '↑, ↓          over the top',
+    'Enter         start, and exit at the end',
+    'q, Esc        quit',
+    '',
+    'Simplified: the hole does not spin, the disc is flat and thin, a perfect engine holds you still until 1.02 radii,',
+    'the stars are random, and it is black and white.',
+  ],
+}
+
 /** @param {string} name @returns {Page} */
 const missingEditor = (name) => ({
   summary: 'edit a text file',
@@ -94,9 +114,8 @@ const PAGES = Object.freeze({
   skills: { summary: 'what Rafey works with', synopsis: ['skills'], description: ["Print Rafey's skills."] },
   projects: {
     summary: "list Rafey's projects",
-    synopsis: ['projects [--3d]'],
+    synopsis: ['projects'],
     description: ['List the projects, each with a one-line summary.'],
-    options: [['--3d', 'open the 3D view of the projects instead']],
   },
   blog: { summary: 'list the blog posts', synopsis: ['blog'], description: ['List the blog posts with their date and reading time.'] },
   music: {
@@ -118,6 +137,7 @@ const PAGES = Object.freeze({
   nano: NANO,
   vim: missingEditor('vim'),
   vi: missingEditor('vi'),
+  singularity: SINGULARITY,
   os: ROS,
   rafeyos: { ...ROS, synopsis: ['rafeyos'] },
   startx: { ...ROS, synopsis: ['startx'] },

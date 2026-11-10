@@ -1,4 +1,4 @@
-// Links between the Projects app and the /home/rafey/projects/*.txt files that describe each project
+// Links between the projects and the /home/rafey/projects/*.txt files that describe each one
 import { RAFEY_HOME } from './buildVfs'
 import { joinPath, realPath } from './paths'
 

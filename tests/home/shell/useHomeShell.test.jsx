@@ -12,7 +12,7 @@ import { writeFile } from '@/components/rafeyos/core/vfs/fsOps'
 import { SETTINGS_KEY, sharedSettingsStore } from '@/components/rafeyos/core/settings/settingsStore'
 import { announceWrite, otherTab, resetSharedStore, sharedVfs } from '@/tests/home/helpers/homeStore'
 
-const fakeHandlers = () => ({ newTab: vi.fn(), mailto: vi.fn(), projects3d: vi.fn(), handoff: vi.fn() })
+const fakeHandlers = () => ({ newTab: vi.fn(), mailto: vi.fn(), handoff: vi.fn() })
 
 /** A fresh page load: a new provider (the root layout's) around a new homepage shell. */
 const load = (handlers = fakeHandlers()) => {
@@ -235,12 +235,10 @@ describe('useHomeShell: effects and panels', () => {
 
     run(view, 'open linkedin | wc -l')
     run(view, 'open email')
-    run(view, 'projects --3d')
     run(view, 'os')
 
     expect(view.handlers.newTab).toHaveBeenCalledWith(expect.stringContaining('linkedin'))
     expect(view.handlers.mailto).toHaveBeenCalledWith(expect.stringMatching(/^mailto:/))
-    expect(view.handlers.projects3d).toHaveBeenCalledTimes(1)
     expect(view.handlers.handoff).toHaveBeenCalledWith({ type: HOME_EFFECTS.HANDOFF })
   })
 

@@ -220,7 +220,7 @@ describe('runLine redirects', () => {
 
     run('help > h')
 
-    expect(texts(run('cat h'))).toEqual(['Available commands:\n\n  bio         biography'])
+    expect(texts(run('cat h'))).toEqual(['Available commands:\n\n  bio          biography'])
   })
 
   it('full storage on append says write error and the next command still runs', () => {

@@ -43,9 +43,9 @@ const useChrome = ({ elementRef, winRef, isMax, minimized, focused, setAnimating
       startDrag,
       toggleMax,
       isMax,
-      // Apps that animate (Projects) pause while their window is minimized
+      // Apps that animate (Minecraft, Studio) pause while their window is minimized
       minimized,
-      // Apps with window-level keys (Projects' Escape) only act on the focused window
+      // Apps with window-level keys (Minecraft) only act on the focused window
       focused,
       minimize: () => windowManager.minimize(id()),
       close: () => windowManager.close(id()),

@@ -17,6 +17,7 @@
     }
   },
   "include": [
-    "components/rafeyos/**/*"
+    "components/rafeyos/**/*",
+    "lib/singularity/**/*"
   ]
 }

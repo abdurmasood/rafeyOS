@@ -24,5 +24,5 @@ export const fixtureContent = Object.freeze({
     milestones: [{ year: 2000, event: 'Start', upcoming: false }, { year: 2030, event: 'Album', upcoming: true }],
   },
   contact: { email: 'me@example.com', linkedinUrl: 'https://linkedin.example/me', linkedinName: 'Me', mailtoHref: 'mailto:me@example.com' },
-  help: { lines: ['Available commands:', '', '  bio         biography', ''], hint: 'hint' },
+  help: { lines: ['Available commands:', '', '  bio          biography', ''], hint: 'hint' },
 })

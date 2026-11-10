@@ -55,11 +55,11 @@ describe('terminal effects', () => {
     const deps = handlers({ windowManager: { openApp: () => false, openPath: () => false } })
 
     const { notes } = applyTerminalEffects(
-      [{ type: 'openApp', app: 'projects' }, { type: 'openPath', path: '/home/rafey/bio.txt' }],
+      [{ type: 'openApp', app: 'minecraft' }, { type: 'openPath', path: '/home/rafey/bio.txt' }],
       deps,
     )
 
-    expect(notes.map((line) => line.text)).toEqual(["Projects isn't available yet", "Text Editor isn't available yet"])
+    expect(notes.map((line) => line.text)).toEqual(["Minecraft isn't available yet", "Text Editor isn't available yet"])
   })
 
   it('notes a path that vanished before it could open, without throwing', () => {

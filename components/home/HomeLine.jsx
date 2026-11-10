@@ -9,6 +9,7 @@ import { MusicPlayer, MusicStory } from '@/components/home/MusicOutput'
 import { NanoEditor } from '@/components/home/NanoEditor'
 import { ProjectPicker } from '@/components/home/ProjectsOutput'
 import { SkillRows } from '@/components/home/SkillsOutput'
+import { Singularity } from '@/components/singularity/Singularity'
 
 // A block drops the newline it ends with, so one more keeps a trailing blank row on screen, as a terminal shows it
 const shownText = (text) => (text.endsWith('\n') ? `${text}\n` : text)
@@ -51,12 +52,12 @@ const FetchLine = ({ line }) => (
   </div>
 )
 
-// `onDone` writes what the panel ended with into its entry; a picker's 3D choice comes as the second argument
+// `onDone` writes what the panel ended with into its entry
 const PANELS = Object.freeze({
   // Trusted lib HTML only (bio, contact, README, music usage), never anything typed
   [HOME_PANELS.HTML]: ({ props }) => <div dangerouslySetInnerHTML={{ __html: props.html }} />,
   [HOME_PANELS.PROJECTS_PICKER]: ({ props, active, onDone }) => (
-    <ProjectPicker active={active} chosenId={props.chosenId} onDone={({ chosenId, view3d }) => onDone({ chosenId }, { view3d })} />
+    <ProjectPicker active={active} chosenId={props.chosenId} onDone={({ chosenId }) => onDone({ chosenId })} />
   ),
   [HOME_PANELS.BLOG_PICKER]: ({ props, active, onDone }) => (
     <BlogPicker active={active} slug={props.slug} onDone={({ slug }) => onDone({ slug })} />
@@ -77,6 +78,11 @@ const PANELS = Object.freeze({
   [HOME_PANELS.NANO]: ({ props, active, onDone, shell }) => (
     <NanoEditor path={props.path} cwd={shell.cwd} shellFs={shell.shellFs} active={active} onDone={onDone} />
   ),
+  // Covers the page while it runs; where there is no WebGL, what it leaves behind reads as dim output
+  [HOME_PANELS.SINGULARITY]: ({ props, active, onDone }) => {
+    const program = <Singularity active={active} onDone={onDone} failed={props.failed} className="singularity-cover" />
+    return props.failed ? <div className="grey">{program}</div> : program
+  },
 })
 
 const PanelLine = ({ line, active, onDone, shell }) => {

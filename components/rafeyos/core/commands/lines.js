@@ -27,7 +27,13 @@ export const ls = (entries) => ({ type: LINE_TYPES.LS, entries: entries.map((ent
 export const prompt = (cwd, cmd) => ({ type: LINE_TYPES.PROMPT, cwd, cmd })
 
 /** Panels both terminals draw; the homepage has more of its own (HOME_PANELS). */
-export const PANEL_KINDS = Object.freeze({ NANO: 'nano', BLOG_PICKER: 'blog-picker', PROJECTS_PICKER: 'projects-picker', SKILLS: 'skills' })
+export const PANEL_KINDS = Object.freeze({
+  NANO: 'nano',
+  BLOG_PICKER: 'blog-picker',
+  PROJECTS_PICKER: 'projects-picker',
+  SKILLS: 'skills',
+  SINGULARITY: 'singularity',
+})
 
 /**
  * A rich block the terminal draws itself (a project card, a player). It is screen-only, so it never reaches a pipe or

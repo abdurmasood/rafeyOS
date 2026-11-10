@@ -122,7 +122,6 @@ export const TerminalApp = ({ windowId, arg }) => {
     cwd: session.cwd,
     shellFs,
     ownsKey: (event) => Boolean(scrollRef.current?.contains(event.target)),
-    openProjects3d: () => windowManager.openApp(APP.PROJECTS),
   })
   const focusInput = () => {
     if (!String(window.getSelection?.() ?? '')) inputRef.current?.focus({ preventScroll: true })
@@ -130,16 +129,19 @@ export const TerminalApp = ({ windowId, arg }) => {
   return (
     <>
       <TerminalHeader title={title} onNewWindow={() => windowManager.openApp(APP.TERMINAL, { path: session.cwd })} />
-      <div className="term pane" ref={scrollRef} onClick={focusInput} tabIndex={-1}>
-        <div className="tlog">
-          {session.entries.map((entry) => (
-            <TerminalLine key={entry.id} line={entry.line} panel={entry.line.type === LINE_TYPES.PANEL ? panelFor(entry) : undefined} />
-          ))}
+      {/* The pane scrolls, so a program that covers the terminal (singularity) is placed against this box instead */}
+      <div className="term-body">
+        <div className="term pane" ref={scrollRef} onClick={focusInput} tabIndex={-1}>
+          <div className="tlog">
+            {session.entries.map((entry) => (
+              <TerminalLine key={entry.id} line={entry.line} panel={entry.line.type === LINE_TYPES.PANEL ? panelFor(entry) : undefined} />
+            ))}
+          </div>
+          {/* nano owns the terminal while it runs */}
+          {session.foregroundId === null && (
+            <PromptLine cwd={session.cwd} question={session.question} input={input} keys={keys} cursor={cursor} inputRef={inputRef} />
+          )}
         </div>
-        {/* nano owns the terminal while it runs */}
-        {session.foregroundId === null && (
-          <PromptLine cwd={session.cwd} question={session.question} input={input} keys={keys} cursor={cursor} inputRef={inputRef} />
-        )}
       </div>
     </>
   )
