@@ -26,8 +26,10 @@ import studio_common as sc  # noqa: E402
 
 CHAIR = "Chair"
 KEYBOARD = "Keyboard"
+MOUSE = "Mouse"
 SEAT_TOP = 0.545  # top of the chair's seat cushion
 CHAIR_PULL = 0.15  # m toward the desk, so the short arms reach the keys (still clears the desk edge)
+MOUSE_PULL = 0.10  # m toward the keyboard: his short arms fall short of where the mouse sits (leaves a 6 cm gap)
 HEAD_R = 0.16
 UPPER_ARM, FOREARM = 0.20, 0.19
 HAIR_SEED, HAIR_CURLS = 4, 190
@@ -55,11 +57,19 @@ ARMREST_LIFT = 0.013  # m: the wrist pivot above the armrest top, so fingertips 
 LAYER_FIGURE, LAYER_BACKREST = "figure", "backrest"
 # Fingers across the knuckles, inner to outer: (offset, length, radius). Mirrored for the left hand.
 FINGERS = (
-    (-0.022, 0.05, 0.0085),  # index
-    (-0.0075, 0.054, 0.0088),  # middle
-    (0.0075, 0.051, 0.0085),  # ring
-    (0.021, 0.042, 0.0075),  # little
+    (-0.025, 0.05, 0.0085),  # index
+    (-0.0085, 0.054, 0.0088),  # middle
+    (0.0085, 0.051, 0.0085),  # ring
+    (0.024, 0.042, 0.0075),  # little
 )
+# Where the fingers rest: rows of key caps counted from the front (space row 0), and each finger's key
+# in that row from the left, in FINGER_NAMES order (f d s a for his left hand, j k l ; for his right)
+HOME_ROW = 2
+HOME_KEYS = {-1: (4, 3, 2, 1), 1: (7, 8, 9, 10)}
+HOME_ROW_KEYS = 13  # caps lock, a-l, ;, ', enter: the row this layout expects
+FINGER_CURL = (math.radians(20), math.radians(60))  # below level: knuckle to middle joint, middle joint to tip
+TIP_INSET = 0.004  # m: a fingertip lands a little in front of its key's centre
+SPLAY = 0.7  # share of the way a finger turns toward its key's centre; the hand's own width covers the rest
 
 
 class Rig:
@@ -69,6 +79,8 @@ class Rig:
         self.bones: list[dict] = []
         self.parts: dict[str, dict] = {}
         self.rests: dict[str, list[float]] = {}
+        self.mouse: list[float] | None = None
+        self.key_pitch: list[float] | None = None
 
     def bone(self, name: str, parent: str | None, pivot: Vector) -> str:
         self.bones.append({"name": name, "parent": parent, "pivot": list(pivot)})
@@ -81,7 +93,7 @@ class Rig:
         self.parts[ob.name] = {"chain": chain, "skeleton": [list(p) for p in skeleton], "blend": blend, "layer": layer}
 
     def to_json(self) -> str:
-        return json.dumps({"bones": self.bones, "parts": self.parts, "rests": self.rests})
+        return json.dumps({"bones": self.bones, "parts": self.parts, "rests": self.rests, "mouse": self.mouse, "keyPitch": self.key_pitch})
 
 
 def side_name(side: int) -> str:
@@ -198,6 +210,50 @@ def elbow_for(shoulder: Vector, wrist: Vector, pole: Vector) -> tuple[Vector, Ve
     return elbow, elbow + (wrist - elbow).normalized() * FOREARM
 
 
+def key_rows(keyboard: bpy.types.Object) -> list[list[tuple[Vector, float]]]:
+    """The keyboard's key caps (top centre, width), in rows from the front, each row from the left (world space)."""
+    evaluated = keyboard.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    mesh = evaluated.to_mesh()
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    seen, caps = set(), []
+    for start in bm.verts:
+        if start.index in seen:
+            continue
+        seen.add(start.index)
+        stack, island = [start], []
+        while stack:
+            vert = stack.pop()
+            island.append(keyboard.matrix_world @ vert.co)
+            for edge in vert.link_edges:
+                other = edge.other_vert(vert)
+                if other.index not in seen:
+                    seen.add(other.index)
+                    stack.append(other)
+        lo = Vector([min(p[i] for p in island) for i in range(3)])
+        hi = Vector([max(p[i] for p in island) for i in range(3)])
+        caps.append((Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, hi.z)), hi.x - lo.x, (hi - lo).length))
+    bm.free()
+    evaluated.to_mesh_clear()
+    caps.sort(key=lambda cap: -cap[2])
+    rows: dict[int, list[tuple[Vector, float]]] = {}
+    for centre, width, _ in caps[1:]:  # the largest island is the keyboard's body
+        rows.setdefault(round(centre.y / 0.005), []).append((centre, width))
+    return [sorted(rows[y], key=lambda cap: cap[0].x) for y in sorted(rows)]
+
+
+def home_keys(keyboard: bpy.types.Object) -> tuple[dict[int, list[Vector]], float, list[float]]:
+    """Each hand's four home keys (FINGER_NAMES order), the space row's y, and the key pitch [across, between rows]."""
+    rows = key_rows(keyboard)
+    home = rows[HOME_ROW] if len(rows) > HOME_ROW else []
+    if len(home) != HOME_ROW_KEYS:
+        raise sc.StudioPipelineError(f"{KEYBOARD} home row has {len(home)} keys, expected {HOME_ROW_KEYS}")
+    across = (home[10][0].x - home[1][0].x) / 9  # a to ;
+    between = home[0][0].y - rows[HOME_ROW - 1][0][0].y
+    keys = {side: [home[i][0] for i in index] for side, index in HOME_KEYS.items()}
+    return keys, rows[0][0][0].y, [round(across, 5), round(between, 5)]
+
+
 def jointed(frame: Frame, rig: Rig, hand: str, name: str, points: list[Vector], radii: list[float]) -> None:
     """A finger or thumb: one tube, bent at the knuckle and the middle joint by two bones."""
     first = rig.bone(f"{name}_a", hand, frame.at(points[0]))
@@ -206,18 +262,39 @@ def jointed(frame: Frame, rig: Rig, hand: str, name: str, points: list[Vector], 
     rig.part(ob, [hand, first, second], [frame.at(p) for p in points])
 
 
-def typing_hand(frame: Frame, rig: Rig, side: int, centre: Vector, key_top: float, hand: str) -> None:
-    """A palm hovering over the keys, four curled fingers resting on them, the thumb on the space bar."""
-    palm = Vector((centre.x, centre.y, key_top + 0.03))
-    rig.part(travels(ellipsoid(frame, f"Palm {side}", "Skin", palm + Vector((0, -0.004, 0)), (0.031, 0.037, 0.012))), [hand])
-    for name, (across, length, radius) in zip(FINGER_NAMES, FINGERS):
-        knuckle = palm + Vector((side * across, 0.025, 0.003))
-        middle = knuckle + Vector((0, length * 0.5, 0.004))
-        tip = Vector((knuckle.x, knuckle.y + length * 0.85, key_top + radius))
+def curled(length: float) -> tuple[float, float]:
+    """How far forward and how far down a resting finger reaches from its knuckle to its tip."""
+    half = length / 2
+    return half * sum(math.cos(a) for a in FINGER_CURL), half * sum(math.sin(a) for a in FINGER_CURL)
+
+
+def palm_over(keys: list[Vector], key_top: float) -> Vector:
+    """The palm centre that puts the middle fingertip on its home key, the knuckles just above the palm."""
+    _, middle_length, middle_radius = FINGERS[1]
+    reach, drop = curled(middle_length)
+    knuckle_y = keys[1].y - TIP_INSET - reach
+    return Vector((sum(k.x for k in keys) / len(keys), knuckle_y - 0.025, key_top + middle_radius * 0.9 + drop - 0.003))
+
+
+def typing_hand(frame: Frame, rig: Rig, side: int, palm: Vector, keys: list[Vector], key_top: float, space_y: float, hand: str) -> None:
+    """A palm over the home row; four fingers arched from the knuckles onto their keys; the thumb by the space row."""
+    rig.part(travels(ellipsoid(frame, f"Palm {side}", "Skin", palm + Vector((0, -0.004, 0)), (0.034, 0.037, 0.012))), [hand])
+    middle_reach, _ = curled(FINGERS[1][1])
+    for name, (across, length, radius), key in zip(FINGER_NAMES, FINGERS, keys):
+        reach, drop = curled(length)
+        # each knuckle sits as high as its own finger needs to rest on the cap (the little finger's is lowest),
+        # and the shorter fingers' knuckles a little further forward, so every tip lands on its key
+        forward = 0.5 * (middle_reach - reach)
+        knuckle = Vector((palm.x + side * across, palm.y + 0.025 + forward, key_top + radius * 0.9 + drop))
+        aim = Vector((SPLAY * (key.x - knuckle.x), reach, 0)).normalized()  # turned partly toward its key
+        half = length / 2
+        bend, down = FINGER_CURL
+        middle = knuckle + Vector((aim.x * half * math.cos(bend), aim.y * half * math.cos(bend), -half * math.sin(bend)))
+        tip = middle + Vector((aim.x * half * math.cos(down), aim.y * half * math.cos(down), -half * math.sin(down)))
         jointed(frame, rig, hand, f"{name}_{side_name(side)}", [knuckle, middle, tip], [radius, radius * 0.95, radius * 0.88])
     base = palm + Vector((-side * 0.026, -0.012, -0.004))
     middle = palm + Vector((-side * 0.039, 0.01, -0.008))
-    tip = Vector((palm.x - side * 0.033, palm.y + 0.03, key_top + 0.009))
+    tip = Vector((palm.x - side * 0.033, max(space_y, palm.y + 0.02), key_top + 0.009))
     jointed(frame, rig, hand, f"thumb_{side_name(side)}", [base, middle, tip], [0.011, 0.0105, 0.0095])
 
 
@@ -244,12 +321,12 @@ def upper_body(frame: Frame, rig: Rig) -> Vector:
     return head
 
 
-def arms(frame: Frame, rig: Rig, keys: Vector, key_top: float) -> None:
+def arms(frame: Frame, rig: Rig, home: dict[int, list[Vector]], key_top: float, space_y: float) -> None:
     """Shoulder, elbow and hand bones per side; the page reaches them to the keys or the armrests."""
     for side in (-1, 1):
         s = side_name(side)
         shoulder = Vector((side * 0.12, 0.09, 0.3))
-        hand = Vector((keys.x + side * 0.075, keys.y - 0.03, keys.z + 0.03))
+        hand = palm_over(home[side], key_top)
         elbow, wrist = elbow_for(shoulder, hand - Vector((0, 0.06, -0.003)), Vector((side * 0.7, -0.2, -1.0)))
         along = (wrist - elbow).normalized()
         wrist_start = wrist - along * 0.02
@@ -259,10 +336,10 @@ def arms(frame: Frame, rig: Rig, keys: Vector, key_top: float) -> None:
         arm = travels(tube(frame, f"Arm {side}", "Jacket", [shoulder, elbow, wrist], [0.05, 0.043, 0.038]))
         rig.part(arm, ["spine", upper, fore], [frame.at(p) for p in (shoulder, elbow, wrist)], blend=ARM_BLEND)
         rig.part(travels(ring(frame, f"Cuff Stripe {side}", "Stripe", wrist - along * 0.03, 0.04, 0.006, along)), [fore])
-        palm_back = Vector((hand.x, hand.y - 0.03, key_top + 0.03))
+        palm_back = Vector((hand.x, hand.y - 0.03, hand.z))
         ob = travels(tube(frame, f"Wrist {side}", "Skin", [wrist_start, palm_back], [0.016, 0.017]))
         rig.part(ob, [fore, hand_bone], [frame.at(wrist_start), frame.at(palm_back)], blend=WRIST_BLEND)
-        typing_hand(frame, rig, side, hand, key_top, hand_bone)
+        typing_hand(frame, rig, side, hand, home[side], key_top, space_y, hand_bone)
 
 
 def hair(frame: Frame, rig: Rig, head: Vector) -> None:
@@ -309,6 +386,21 @@ def armrest_rests(chair: bpy.types.Object) -> dict[str, list[float]]:
     return rests
 
 
+def mouse_within_reach() -> list[float]:
+    """Slide the mouse toward the keyboard (its children ride along) and return the top of it, where his palm goes."""
+    mouse = sc.obj(MOUSE)
+    mouse.matrix_world = Matrix.Translation((-MOUSE_PULL, 0, 0)) @ mouse.matrix_world
+    bpy.context.view_layer.update()
+    riders = [child.name for child in mouse.children_recursive]
+    print(f"[figure] mouse pulled {MOUSE_PULL} m toward the keyboard" + (f" with {', '.join(riders)}" if riders else ""))
+    corners = [mouse.matrix_world @ Vector(c) for c in mouse.bound_box]
+    return [
+        (min(c.x for c in corners) + max(c.x for c in corners)) / 2,
+        (min(c.y for c in corners) + max(c.y for c in corners)) / 2,
+        max(c.z for c in corners),
+    ]
+
+
 def seat_frames() -> tuple[Frame, Frame, float]:
     """Pull the chair in, then return the chair-aligned frame, the desk-aligned frame and the key-top height."""
     chair = sc.obj(CHAIR)
@@ -326,7 +418,10 @@ def build(scene: bpy.types.Scene) -> None:
     if bpy.data.objects.get(f"{sc.FIGURE_PREFIX}Torso") is not None:
         return
     with_chair, square_to_desk, key_top = seat_frames()
-    keys = square_to_desk.matrix.inverted() @ sc.obj(KEYBOARD).matrix_world.translation
+    to_figure = square_to_desk.matrix.inverted()
+    keys_world, space_y_world, key_pitch = home_keys(sc.obj(KEYBOARD))
+    home = {side: [to_figure @ key for key in keys] for side, keys in keys_world.items()}
+    space_y = (to_figure @ Vector((0, space_y_world, 0))).y
     chair = sc.obj(CHAIR)
     rig = Rig()
     rig.bone("root", None, square_to_desk.at((0, 0, 0)))
@@ -334,8 +429,10 @@ def build(scene: bpy.types.Scene) -> None:
     rig.bone("spine", "swivel", square_to_desk.at(SPINE_PIVOT))
     legs(with_chair, rig)
     head = upper_body(square_to_desk, rig)
-    arms(square_to_desk, rig, keys, key_top)
+    arms(square_to_desk, rig, home, key_top, space_y)
     hair(square_to_desk, rig, head)
     chair_top(rig)
     rig.rests = armrest_rests(chair)
+    rig.mouse = mouse_within_reach()
+    rig.key_pitch = key_pitch
     scene[sc.FIGURE_RIG] = rig.to_json()

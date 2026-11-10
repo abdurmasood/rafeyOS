@@ -172,6 +172,10 @@ def figure_facts(scene: bpy.types.Scene) -> dict | None:
         ],
         # where each wrist settles on the armrest when he leans back
         "rests": {side: sc.to_three_point(point) for side, point in rig["rests"].items()},
+        # the top of the mouse (after it is pulled within reach), where his right palm rests
+        **({"mouse": sc.to_three_point(rig["mouse"])} if rig.get("mouse") else {}),
+        # metres between key centres on the room's keyboard: [across, between rows]
+        **({"keyPitch": rig["keyPitch"]} if rig.get("keyPitch") else {}),
     }
 
 

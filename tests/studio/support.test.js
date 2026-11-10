@@ -107,6 +107,16 @@ describe('studio manifest', () => {
     expect(() => validateManifest({ ...manifest, figure })).toThrow(new StudioManifestError('studio manifest figure rests need a wrist point for each side'))
   })
 
+  it('rejects a mouse that is not one point', () => {
+    const figure = { bones: [{ name: 'root', parent: -1, pivot: [0, 0, 0] }], mouse: [0, 0.8] }
+    expect(() => validateManifest({ ...manifest, figure })).toThrow(new StudioManifestError('studio manifest figure mouse needs one point: the top of the mouse'))
+  })
+
+  it('rejects a key pitch that is not two distances', () => {
+    const figure = { bones: [{ name: 'root', parent: -1, pivot: [0, 0, 0] }], keyPitch: [0.02] }
+    expect(() => validateManifest({ ...manifest, figure })).toThrow(new StudioManifestError('studio manifest figure keyPitch needs two distances: across and between rows'))
+  })
+
   it('rejects a packed layer that points outside its atlas', () => {
     const broken = { ...manifest, deltas: { moon: { rect: [0, 0, 1, 1], pos: { atlasRect: [0, 0, 1.2, 1] }, neg: { atlasRect: [0, 0, 1, 1] } } } }
     expect(() => validateManifest(broken)).toThrow(StudioManifestError)
