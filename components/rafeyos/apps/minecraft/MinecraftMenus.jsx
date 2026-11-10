@@ -11,7 +11,7 @@ export const CONTROLS = Object.freeze([
   ['Mouse', 'Look around'],
   ['Space', 'Jump, swim up'],
   ['Shift', 'Sprint'],
-  ['Left click', 'Break the outlined block (hold to keep breaking)'],
+  ['Left click', 'Break the outlined block, or hit a shade (hold to keep going)'],
   ['Right click', 'Place the selected block'],
   ['1 – 9, wheel', 'Pick a block'],
   ['Esc', 'Let go of the mouse'],

@@ -19,7 +19,8 @@ import { FOG, SKY, depthBelowSurface, seeWaterFromBelow, setAtmosphereAt } from 
 import { createSkyDome } from './skyDome'
 import { createHud } from './engineHud'
 import { createLoop } from './frameLoop'
-import { VITALS, createVitals, resetVitals, stepVitals } from './life/vitals'
+import { CAUSE, VITALS, createVitals, hurt, resetVitals, stepVitals } from './life/vitals'
+import { SHADES } from './life/shades'
 import { createLife } from './life/life'
 
 // Fog and the far plane both measure view-space depth, so ending the view just past full fog cuts off nothing visible
@@ -392,7 +393,7 @@ const assembleEngine = ({
   releases.push(view.dispose, wash.remove)
   const chunks = createChunks(view.scene, world, view.materials, chunkArrays)
   releases.push(chunks.dispose)
-  const life = createLife({ view, world, startTime, reducedMotion })
+  const life = createLife({ view, world, startTime, reducedMotion, onBite: (shade) => bitten(shade) })
   releases.push(life.dispose)
   const shotFog = { clear: FOG, setAt: (eye) => setAtmosphereAt(view, world, eye) }
   const hud = createHud(onHud, player)
@@ -402,7 +403,9 @@ const assembleEngine = ({
   const death = { respawning: false }
   const input = createMinecraftInput({ canvas, doc, win, now, on: {
     turn: (dx, dy) => turn(player, dx, dy),
-    breakBlock: editor.breakBlock,
+    breakBlock: () => {
+      if (!life.hitShade({ eye: eyePosition(player), look: lookDirection(player), target })) editor.breakBlock()
+    },
     placeBlock: editor.placeBlock,
     select: hud.select,
     scroll: (step) => hud.select(hud.selected() + step),
@@ -421,12 +424,21 @@ const assembleEngine = ({
     input.setMuted(true)
     if (doc.pointerLockElement === canvas) doc.exitPointerLock?.()
   }
+  // A shade's bite: a heart and a half, and a shove away from it
+  const bitten = (shade) => {
+    const away = Math.atan2(player.pos.x - shade.x, player.pos.z - shade.z)
+    player.vel.x += Math.sin(away) * 6
+    player.vel.z += Math.cos(away) * 6
+    player.vel.y = 5
+    if (hurt(vitals, SHADES.BITE, { kind: CAUSE.SHADE }).some((event) => event.type === 'dead')) die()
+  }
   const respawn = () => {
     if (!hud.isDead()) return
     if (!death.respawning) {
       if (vitals.deadFor < VITALS.RESPAWN_DELAY) return
       respawnPlayer()
       resetVitals(vitals)
+      life.respawned()
       hud.vitals(vitals)
       death.respawning = true
     }
@@ -440,7 +452,7 @@ const assembleEngine = ({
     const events = stepVitals(vitals, sampleVitals(player, world, input.isPlaying()), dt)
     if (events.some((event) => event.type === 'dead')) die()
     hud.vitals(vitals)
-    life.beforeView(dt, player)
+    life.beforeView(dt, { player, playing: input.isPlaying(), eye: eyePosition(player), swimming: isSwimming(player, world) })
     input.tick(time)
     target = updateView(view, world, player)
     const shot = director.frame({ dt, eye: eyePosition(player), yaw: player.yaw, pitch: player.pitch })

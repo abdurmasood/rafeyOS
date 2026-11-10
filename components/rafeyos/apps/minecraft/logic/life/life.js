@@ -1,7 +1,7 @@
 // The world's own life, stepped by the engine every frame. Before the camera is set: the time of day, written into
-// the view for the fog and sky, the light on the blocks, the wind, the tufts laid out around the player, and the
-// animals living round them. After it (and after any director shot): the clouds and fireflies around the camera, and
-// the walking bob.
+// the view for the fog and sky, the light on the blocks, the wind, the tufts laid out around the player, the animals
+// living round them, and after dark the shades hunting them. After it (and after any director shot): the clouds and
+// fireflies around the camera, and the walking bob.
 import { Color, Group } from 'three'
 import { createSkyClock, createSkyState, skyAt } from '@/components/rafeyos/apps/minecraft/logic/life/skyClock'
 import { createGround } from '@/components/rafeyos/apps/minecraft/logic/life/ground'
@@ -11,6 +11,8 @@ import { createTufts } from '@/components/rafeyos/apps/minecraft/logic/life/tuft
 import { createFireflies } from '@/components/rafeyos/apps/minecraft/logic/life/fireflies'
 import { createHerds } from '@/components/rafeyos/apps/minecraft/logic/life/herds'
 import { createCreatureMeshes } from '@/components/rafeyos/apps/minecraft/logic/life/creatureMeshes'
+import { createShades } from '@/components/rafeyos/apps/minecraft/logic/life/shades'
+import { createShadeMeshes } from '@/components/rafeyos/apps/minecraft/logic/life/shadeMeshes'
 import { zoneAt } from '@/components/rafeyos/apps/minecraft/logic/mainland'
 
 const WHITE = new Color(0xffffff)
@@ -22,15 +24,37 @@ const BOB = Object.freeze({ RISE: 0.045, SWAY: 0.03, RATE: 2.1, WALK: 4.3 })
 /** Relative luminance of a linear colour: how much light there is, for the underwater wash. @param {Color} colour */
 const luminance = ({ r, g, b }) => 0.2126 * r + 0.7152 * g + 0.0722 * b
 
+// How far a click can reach a shade when it isn't aimed at a block; a block in the way stops it there
+const HIT_REACH = 4.5
+
+/**
+ * How far along `look` from `eye` the ray first enters block `target` (the slab test on its unit box).
+ * @param {{ x: number, y: number, z: number }} eye
+ * @param {{ x: number, y: number, z: number }} look
+ * @param {{ x: number, y: number, z: number }} target
+ */
+const entryDistance = (eye, look, target) => {
+  let entry = 0
+  for (const axis of ['x', 'y', 'z']) {
+    if (look[axis] === 0) continue
+    const near = (look[axis] > 0 ? target[axis] : target[axis] + 1) - eye[axis]
+    entry = Math.max(entry, near / look[axis])
+  }
+  return entry
+}
+
 /** Gusting wind: never still, never the same twice in a row. @param {number} t */
 const windAt = (t) => 0.8 + 0.45 * Math.sin(t * 0.21) + 0.2 * Math.sin(t * 0.77)
 
 /**
- * @param {{ view: object, world: object, startTime?: number, reducedMotion?: boolean }} options - `view`: the engine's
- *   view (scene, sky, materials, camera and the colours setAtmosphereAt reads); `startTime`: the time of day to start
- *   at, a fraction from midnight; `reducedMotion`: hold the wind, water, clouds and fireflies still, and drop the bob
+ * @param {{
+ *   view: object, world: object, startTime?: number, reducedMotion?: boolean,
+ *   onBite?: (shade: import('./shades').Shade) => void,
+ * }} options - `view`: the engine's view (scene, sky, materials, camera and the colours setAtmosphereAt reads);
+ *   `startTime`: the time of day to start at, a fraction from midnight; `reducedMotion`: hold the wind, water, clouds
+ *   and fireflies still, and drop the bob; `onBite`: a shade has bitten the player
  */
-export const createLife = ({ view, world, startTime, reducedMotion = false }) => {
+export const createLife = ({ view, world, startTime, reducedMotion = false, onBite = () => {} }) => {
   const motion = reducedMotion ? 0 : 1
   const clock = createSkyClock(startTime)
   const sky = createSkyState()
@@ -43,7 +67,9 @@ export const createLife = ({ view, world, startTime, reducedMotion = false }) =>
   const flies = createFireflies(ground, uniforms.time)
   const herds = createHerds({ world, ground, zoneAt })
   const creatures = createCreatureMeshes()
-  group.add(clouds.mesh, ...tufts.meshes, flies.points, ...creatures.meshes)
+  const shades = createShades({ world, ground })
+  const shadeMeshes = createShadeMeshes()
+  group.add(clouds.mesh, ...tufts.meshes, flies.points, ...creatures.meshes, ...shadeMeshes.meshes, shadeMeshes.glow)
   view.scene.add(group)
   swayLeaves(view.materials.solid, uniforms)
   driftWater(view.materials.water, uniforms)
@@ -88,8 +114,11 @@ export const createLife = ({ view, world, startTime, reducedMotion = false }) =>
     creatures.draw(herds.animals, herds.gulls, sky.glow)
   }
   return {
-    /** @param {number} dt @param {{ pos: { x: number, z: number }, vel: { x: number, z: number } }} player */
-    beforeView: (dt, player) => {
+    /**
+     * @param {number} dt
+     * @param {{ player: object, playing: boolean, eye: { x: number, y: number, z: number }, swimming: boolean }} frame
+     */
+    beforeView: (dt, { player, playing, eye, swimming }) => {
       elapsed += dt
       uniforms.time.value += dt * motion
       uniforms.wind.value = windAt(elapsed) * motion
@@ -98,7 +127,16 @@ export const createLife = ({ view, world, startTime, reducedMotion = false }) =>
       applySky()
       tufts.update(player.pos)
       stepAnimals(dt, player)
+      shades.update(dt, { player, eye, night: sky.night, playing, swimming, time: elapsed, onBite })
+      shadeMeshes.draw(shades.shades, dt, sky.light)
     },
+    /**
+     * A left click: hits the shade it points at, if one is nearer than the block it's aimed at. True if it did, so the
+     * block behind is left alone.
+     * @param {{ eye: object, look: object, target: { x: number, y: number, z: number } | null }} aim
+     */
+    hitShade: ({ eye, look, target }) => shades.hit(eye, look, target ? Math.min(HIT_REACH, entryDistance(eye, look, target)) : HIT_REACH),
+    respawned: () => shades.respawned(),
     /**
      * @param {number} dt
      * @param {{ shot: object | null, player: object, playing: boolean }} frame - `shot`: the director's, if it has the
@@ -117,12 +155,14 @@ export const createLife = ({ view, world, startTime, reducedMotion = false }) =>
     },
     time: () => clock.time(),
     herds: () => herds,
+    shades: () => shades,
     dispose: () => {
       group.removeFromParent()
       clouds.dispose()
       tufts.dispose()
       flies.dispose()
       creatures.dispose()
+      shadeMeshes.dispose()
     },
   }
 }
