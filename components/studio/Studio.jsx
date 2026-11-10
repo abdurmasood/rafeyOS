@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { PerformanceMonitor } from '@react-three/drei'
-import { canvasBox, dprFor } from '@/lib/studio/camera'
+import { ROOM_VIEW, canvasBox, dprFor } from '@/lib/studio/camera'
 import { ASPECT_RANGE, BUILD_QUALITY, REF_ROWS, manifest } from '@/lib/studio/manifest'
 import { QUALITY_EVENTS, TIERS, TOP_TIER, nextTier } from '@/lib/studio/quality'
 import { STUDIO_SUPPORT, detectStudioSupport } from '@/lib/studio/webgl'
@@ -70,7 +70,8 @@ function StudioCanvas({ space, paused }) {
   const settled = useSettled(ready)
   const { quality, onDecline, onIncline, onFallback } = useQualityTier()
   const box = canvasBox(space, ASPECT_RANGE)
-  const dpr = dprFor({ box, deviceDpr: window.devicePixelRatio, refRows: REF_ROWS, perf: quality.dprFactor })
+  const refRows = REF_ROWS * ROOM_VIEW.halfSize // the view shows only the room's part of the plate
+  const dpr = dprFor({ box, deviceDpr: window.devicePixelRatio, refRows, perf: quality.dprFactor })
   return (
     <div
       style={{ width: box.width, height: box.height, opacity: ready ? 1 : 0, transition: `opacity ${FADE_MS}ms ease` }}

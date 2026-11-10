@@ -9,6 +9,8 @@ import {
   halfTanFor,
   plateHalfTans,
   plateViewProjection,
+  ROOM_VIEW,
+  roomViewOffset,
 } from '@/lib/studio/camera'
 
 const PLATE = { width: 4800, height: 2400, crop: [1400, 200, 2000, 2000] }
@@ -68,5 +70,37 @@ describe('camera reconstruction', () => {
     const [u, v] = plateUvOf(viewProj, [1.8, 1.8, 0])
     expect(u).toBeCloseTo((1400 + 2000) / 4800, 6)
     expect(v).toBeCloseTo(1 - 200 / 2400, 6)
+  })
+})
+
+describe('framing the room', () => {
+  it('zooms in by 1 / halfSize, keeping the canvas aspect', () => {
+    const view = roomViewOffset({ width: 1600, height: 900 }, { centre: [0, 0], halfSize: 0.8 })
+    expect(view).toMatchObject({ fullWidth: 1600, fullHeight: 900, width: 1280, height: 720 })
+    expect(view.width / view.height).toBeCloseTo(1600 / 900)
+    expect(view.x).toBeCloseTo(160) // centred: the same margin either side
+    expect(view.y).toBeCloseTo(90)
+  })
+
+  it('shifts to the centre it is given, in reference-frame units (y up)', () => {
+    // A wide canvas contains the frame by its height: one unit is half the height
+    const view = roomViewOffset({ width: 1600, height: 900 }, { centre: [0.1, -0.1], halfSize: 1 })
+    expect(view.x).toBeCloseTo(0.1 * 450)
+    expect(view.y).toBeCloseTo(0.1 * 450) // a lower centre moves the window down the frame
+    // A tall one contains it by its width
+    expect(roomViewOffset({ width: 600, height: 1000 }, { centre: [0.2, 0], halfSize: 1 }).x).toBeCloseTo(0.2 * 300)
+  })
+
+  it('shows the whole room with a margin, and only a little closer than the full render', () => {
+    expect(ROOM_VIEW.halfSize).toBeGreaterThan(0.78) // the room reaches 0.78 below the frame's centre...
+    expect(ROOM_VIEW.halfSize - Math.abs(ROOM_VIEW.centre[1])).toBeGreaterThan(0.73) // ...and 0.69 above
+    expect(1 / ROOM_VIEW.halfSize).toBeLessThan(1.5)
+  })
+
+  it('renders fewer device pixels once zoomed: there are fewer plate pixels across the view', () => {
+    const box = { width: 1000, height: 700 }
+    const full = dprFor({ box, deviceDpr: 2, refRows: 1500 })
+    const zoomed = dprFor({ box, deviceDpr: 2, refRows: 1500 * ROOM_VIEW.halfSize })
+    expect(zoomed).toBeLessThan(full)
   })
 })
