@@ -1,4 +1,5 @@
-// Commands that open apps or files: open/xdg-open/gio open, nautilus, text editors, and nano in the terminal
+// Commands that open apps or files: open/xdg-open/gio open, nautilus, text editors, and the programs that run in the
+// terminal itself (nano, singularity)
 import { PANEL_KINDS, dim, panel, pre } from '@/components/rafeyos/core/commands/lines'
 import { normalize, realPath, resolvePath } from '@/components/rafeyos/core/vfs/paths'
 import { isDir } from '@/components/rafeyos/core/vfs/queries'
@@ -53,6 +54,13 @@ const nano = (context) => result([nanoPanel(context)])
 
 const vim = (context) => result([dim(`${context.name} isn't installed here, opened nano instead`), nanoPanel(context)])
 
+// It draws on the screen and reads the keyboard, so it has nothing to give a pipe or a file
+const singularity = ({ argv, tty }) => {
+  if (argv.length) return failure(`singularity: unknown option '${argv[0]}'. Usage: singularity`)
+  if (!tty) return failure('singularity: needs a terminal')
+  return result([panel(PANEL_KINDS.SINGULARITY, {}, { foreground: true })])
+}
+
 export const launchCommands = Object.freeze({
   open,
   'xdg-open': open,
@@ -63,4 +71,5 @@ export const launchCommands = Object.freeze({
   nano,
   vim,
   vi: vim,
+  singularity,
 })

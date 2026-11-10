@@ -32,6 +32,7 @@ export const HOME_PANELS = Object.freeze({
   MUSIC_STORY: 'music-story',
   MUSIC_PLAYER: 'music-player',
   NANO: PANEL_KINDS.NANO,
+  SINGULARITY: PANEL_KINDS.SINGULARITY,
 })
 
 const STARTING_ROS = 'starting rOS…'
