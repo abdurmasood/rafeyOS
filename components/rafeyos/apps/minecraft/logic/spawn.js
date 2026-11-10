@@ -11,8 +11,8 @@ import { BLOCK } from './blockTypes'
 
 /** @type {Set<number>} */
 const OPEN_GROUND = new Set([BLOCK.GRASS, BLOCK.DRY_GRASS, BLOCK.MARSH_GRASS, BLOCK.SNOW, BLOCK.SAND, BLOCK.RED_SAND])
-/** @type {Set<number>} */
-const TREE = new Set([
+/** Every block a tree or cactus is made of: never ground to stand on. @type {ReadonlySet<number>} */
+export const TREE = new Set([
   BLOCK.LOG, BLOCK.LEAVES, BLOCK.PINE_LOG, BLOCK.PINE_LEAVES, BLOCK.BIRCH_LOG, BLOCK.BIRCH_LEAVES,
   BLOCK.PALM_LOG, BLOCK.PALM_LEAVES, BLOCK.MARSH_LEAVES, BLOCK.CACTUS,
 ])
