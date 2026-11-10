@@ -90,24 +90,52 @@ const ProjectsIcon = () => (
   </>
 )
 
-/** The studio as the room shows it: an isometric corner at night, moonlit window, glowing monitor, warm lamp and LED strip. */
-const IsoRoom = () => (
+/** Rafey from behind, as he sits in the room: varsity red, white collar stripe, curly hair, headphones. */
+const RafeyFromBehind = () => (
   <>
-    <path d="M24 22l14 7-14 7-14-7z" fill="#232838" />
-    <path d="M24 25.5l8 4-8 4-8-4z" fill="#3b4052" />
-    <path d="M10 29V15l14-7v14z" fill="#1a1e2d" />
-    <path d="M24 22V8l14 7v14z" fill="#283048" />
-    <path d="M13.5 15.25l5.5-2.75v7l-5.5 2.75z" fill="#9db2d8" opacity=".85" />
-    <path d="M28 17.5l5 2.5v4l-5-2.5z" fill="#5b74b8" />
-    <path d="M24.6 9.3l12.8 6.4" stroke="#e9a55c" strokeWidth="1.1" strokeLinecap="round" />
-    <circle cx="34.6" cy="25.4" r="1.4" fill="#ffc27a" />
+    <path d="M6 48c0-9.5 7.5-14.5 18-14.5s18 5 18 14.5z" fill="#6a1712" />
+    <rect x="20.5" y="29" width="7" height="6" rx="2" fill="#6b3b24" />
+    <path d="M12.5 38.2c3.4-2.4 7.4-3.6 11.5-3.6s8.1 1.2 11.5 3.6" fill="none" stroke="#f3f0ea" strokeWidth="2.2" />
+    <g fill="#17110c">
+      <circle cx="24" cy="21" r="9" />
+      <circle cx="16.8" cy="19" r="3.4" />
+      <circle cx="31.2" cy="19" r="3.4" />
+      <circle cx="19" cy="13.6" r="3.6" />
+      <circle cx="24" cy="12" r="3.8" />
+      <circle cx="29" cy="13.6" r="3.6" />
+      <circle cx="17.2" cy="25" r="3.2" />
+      <circle cx="30.8" cy="25" r="3.2" />
+      <circle cx="20.5" cy="28.5" r="3" />
+      <circle cx="27.5" cy="28.5" r="3" />
+    </g>
+    <path d="M13.6 21a10.4 10.4 0 0 1 20.8 0" fill="none" stroke="#1d2340" strokeWidth="2.4" />
+    <rect x="11.2" y="19.5" width="4.4" height="8" rx="2.2" fill="#1d2340" />
+    <rect x="32.4" y="19.5" width="4.4" height="8" rx="2.2" fill="#1d2340" />
   </>
 )
 
+/** His shoulders reach the bottom edge, so the figure is clipped to the rounded square it sits in. */
+const ClippedRafey = ({ x, size, radius }) => {
+  // Unique per instance, like the Music icon: the dock and the app grid can show it together
+  const clipId = useId()
+  return (
+    <>
+      <defs>
+        <clipPath id={clipId}>
+          <rect x={x} y={x} width={size} height={size} rx={radius} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${clipId})`} transform={`translate(${x} ${x}) scale(${size / 48})`}>
+        <RafeyFromBehind />
+      </g>
+    </>
+  )
+}
+
 const StudioIcon = () => (
   <>
-    <rect x="5" y="5" width="38" height="38" rx="9" fill="#10131c" />
-    <IsoRoom />
+    <rect x="5" y="5" width="38" height="38" rx="9" fill="#b13a30" />
+    <ClippedRafey x={5} size={38} radius={9} />
   </>
 )
 
@@ -276,8 +304,8 @@ const MinecraftTile = () => (
 )
 
 const StudioTile = () => (
-  <Tile from="#1d2236" to="#0b0d14" rim>
-    <IsoRoom />
+  <Tile from="#c8463a" to="#8a1f19" rim>
+    <ClippedRafey x={0} size={48} radius={11} />
   </Tile>
 )
 
