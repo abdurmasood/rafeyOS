@@ -53,3 +53,27 @@ describe('terminal text matches the homepage terminal', () => {
     expect(cursor).toMatch(/color:\s*var\(--tbg\)/)
   })
 })
+
+describe('the cover a terminal program draws (singularity)', () => {
+  const rule = (css, selector) => [...css.matchAll(/([^{}@]+)\{([^{}]*)\}/g)].find(([, found]) => found.trim() === selector)[2]
+  const windows = withoutComments(readFileSync(`${STYLES}/window.css`, 'utf8'))
+
+  it('is placed against the box around the pane, which does not scroll, so the scrollback cannot carry it away', () => {
+    expect(rule(apps, ':where(.rafeyos) .term-body')).toMatch(/position:\s*relative/)
+    expect(rule(apps, ':where(.rafeyos) .term-body')).not.toMatch(/overflow/)
+    // A positioned pane would become the cover's containing block, and the pane scrolls
+    expect(termRoot()).toMatch(/overflow:\s*auto/)
+    expect(termRoot()).not.toMatch(/position:/)
+    expect(rule(apps, ':where(.rafeyos) .term .singularity-cover')).toMatch(/position:\s*absolute;\s*inset:\s*0;/)
+  })
+
+  it("takes the dark pane card's inset and corners, as window.css sets them", () => {
+    const pane = rule(windows, ':where(.rafeyos:not(.light)) .pane')
+    const cover = rule(apps, ':where(.rafeyos:not(.light)) .term .singularity-cover')
+    const [, margin] = pane.match(/margin:\s*([^;]+);/)
+    const [, radius] = pane.match(/border-radius:\s*([^;]+);/)
+
+    expect(cover).toContain(`inset: ${margin};`)
+    expect(cover).toContain(`border-radius: ${radius};`)
+  })
+})
