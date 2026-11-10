@@ -178,9 +178,6 @@
 :where(.rafeyos) .infobar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: color-mix(in srgb, var(--accent) 22%, var(--win)); font-size: 13.5px; }
 :where(.rafeyos) .infobar .sp { flex: 1; }
 
-/* projects */
-/* The /projects page's 3D scene (Tailwind-styled; base.css keeps its resets off it) */
-:where(.rafeyos) .p3d { flex: 1; min-height: 0; position: relative; background: #000; }
 :where(.rafeyos) .studio-app { flex: 1; min-height: 0; position: relative; background: #000; }
 
 /* minecraft */
