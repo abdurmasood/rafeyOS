@@ -1,9 +1,9 @@
 // The Minecraft world on screen: the three.js scene (sky, fog, chunk meshes, the outline on the aimed-at block), the
 // frame loop, and the window it lives in. The renderer and frame scheduler are injected, so tests run it without WebGL.
 import {
-  BackSide, BoxGeometry, BufferAttribute, BufferGeometry, Color, DataTexture, EdgesGeometry, Fog, LineBasicMaterial,
+  BoxGeometry, BufferAttribute, BufferGeometry, Color, DataTexture, EdgesGeometry, Fog, LineBasicMaterial,
   LineSegments, Mesh, MeshBasicMaterial, NearestFilter, NearestMipmapLinearFilter, PerspectiveCamera, RGBAFormat,
-  RepeatWrapping, SRGBColorSpace, Scene, ShaderChunk, ShaderMaterial, Sphere, SphereGeometry, Vector3, WebGLRenderer,
+  RepeatWrapping, SRGBColorSpace, Scene, ShaderChunk, Sphere, Vector3, WebGLRenderer,
 } from 'three'
 import { BLOCK, HOTBAR, TILE, isSolid } from './blockTypes'
 import { ATLAS, flipRows, paintAtlas, tilePixels } from './texturePixels'
@@ -16,28 +16,15 @@ import { castRay } from './raycast'
 import { createMinecraftInput } from './minecraftInput'
 import { IDLE_DIRECTOR, applyShot, startPlaying } from './directorShot'
 import { FOG, SKY, seeWaterFromBelow, setAtmosphereAt } from './atmosphere'
+import { createSkyDome } from './skyDome'
+import { createHud } from './engineHud'
+import { createLoop } from './frameLoop'
 
 // Fog and the far plane both measure view-space depth, so ending the view just past full fog cuts off nothing visible
 const CAMERA_FAR = FOG.far + 8
 const FALL_LIMIT = -20
-const HUD_INTERVAL = 100
-// Longest frame the physics will take in one go, so a stall can't fling the player through the world
-const MAX_FRAME = 0.05
-const COMPASS = Object.freeze(['N', 'W', 'S', 'E'])
 // The blue wash over the world at full haze, and the smallest change in it worth a style write
 const WASH = Object.freeze({ opacity: 0.22, step: 0.005 })
-
-const SKY_VERTEX = 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'
-const SKY_FRAGMENT = `
-  uniform vec3 horizon; uniform vec3 zenith; uniform vec3 sun; uniform float glow; varying vec3 vDir;
-  void main() {
-    vec3 dir = normalize(vDir);
-    vec3 color = mix(horizon, zenith, pow(clamp(dir.y * 1.5, 0.0, 1.0), 0.75));
-    float toward = max(dot(dir, sun), 0.0);
-    color += vec3(1.0, 0.93, 0.78) * (pow(toward, 900.0) * 1.6 + pow(toward, 12.0) * 0.12) * glow;
-    gl_FragColor = vec4(color, 1.0);
-    #include <colorspace_fragment>
-  }`
 
 const defaultRenderer = (canvas) => new WebGLRenderer({ canvas, antialias: true })
 
@@ -95,17 +82,7 @@ const createView = () => {
   scene.fog = new Fog(horizon.clone(), FOG.near, FOG.far)
   const camera = new PerspectiveCamera(72, 1, 0.05, CAMERA_FAR)
   camera.rotation.order = 'YXZ'
-  // Inside the far plane, or the dome itself would be clipped away
-  const sky = new Mesh(new SphereGeometry(FOG.far, 32, 16), new ShaderMaterial({
-    side: BackSide, depthWrite: false, fog: false, vertexShader: SKY_VERTEX, fragmentShader: SKY_FRAGMENT,
-    // Their own Colors: setAtmosphereAt rewrites these in place, and view.horizon is also the fog's dry-air colour
-    uniforms: {
-      horizon: { value: new Color(SKY.horizon) }, zenith: { value: new Color(SKY.zenith) },
-      sun: { value: new Vector3(0.45, 0.55, -0.7).normalize() }, glow: { value: 1 },
-    },
-  }))
-  // The dome (radius FOG.far) is now nearer than some terrain, so sorting behind by material id alone isn't enough
-  sky.renderOrder = -1
+  const sky = createSkyDome()
   const textures = createTextures()
   const materials = {
     solid: new MeshBasicMaterial({ map: textures.blocks, vertexColors: true }),
@@ -238,11 +215,6 @@ const createEditor = ({ world, player, chunks, getTarget, getSelected, onEdit })
   }
 }
 
-const positionText = ({ pos, yaw }) => {
-  const heading = COMPASS[((Math.round(yaw / (Math.PI / 2)) % 4) + 4) % 4]
-  return `x ${pos.x.toFixed(1)} · y ${pos.y.toFixed(1)} · z ${pos.z.toFixed(1)} · ${heading}`
-}
-
 /** Points the camera from the player's eyes, finds the aimed-at block, and sets fog and sky for the eyes' depth. */
 const updateView = (view, world, player) => {
   const { camera, sky, outline } = view
@@ -293,31 +265,6 @@ const drawFrame = ({ renderer, view, chunks, wash }) => {
   renderer.setClearColor(view.scene.fog.color)
   renderer.render(view.scene, view.camera)
   wash.show(view.haze)
-}
-
-/** HUD state, sent whole to `onHud` on every change; the position at most every HUD_INTERVAL ms. */
-const createHud = (onHud, player) => {
-  const hud = { playing: false, selected: 0, position: positionText(player) }
-  let positionAt = -Infinity
-  const emit = (patch) => {
-    Object.assign(hud, patch)
-    onHud({ ...hud })
-  }
-  return {
-    emit,
-    selected: () => hud.selected,
-    select: (slot) => {
-      const next = ((slot % HOTBAR.length) + HOTBAR.length) % HOTBAR.length
-      if (next !== hud.selected) emit({ selected: next })
-    },
-    /** @param {number} time */
-    track: (time) => {
-      if (time - positionAt < HUD_INTERVAL) return
-      positionAt = time
-      const position = positionText(player)
-      if (position !== hud.position) emit({ position })
-    },
-  }
 }
 
 /** The browser can't make a WebGL context; the scene shows its "can't start" card for this and only this. */
@@ -436,9 +383,11 @@ const assembleEngine = ({
   } })
   releases.push(input.dispose)
   releases.push(...[watchSize({ host, win, renderer, camera: view.camera }), watchContextRestore(canvas, chunks)])
+  // Back to the spawn point, standing clear of anything built on it
+  const respawnPlayer = () => Object.assign(player, liftClear(createPlayer(island.spawn), world))
   const loop = createLoop({ requestFrame, cancelFrame, now, step: (time, dt) => {
     stepPlayer(player, world, input.moveInput(), dt)
-    if (player.pos.y < FALL_LIMIT) Object.assign(player, liftClear(createPlayer(island.spawn), world))
+    if (player.pos.y < FALL_LIMIT) respawnPlayer()
     input.tick(time)
     target = updateView(view, world, player)
     const shot = director.frame({ dt, eye: eyePosition(player), yaw: player.yaw, pitch: player.pitch })
@@ -458,32 +407,4 @@ const assembleEngine = ({
     toTitle: () => director.toOrbit(),
     dispose: release,
   })
-}
-
-/**
- * The frame loop: `step(time, dt)` once per frame. Stopping cancels the next frame; starting again resets the clock,
- * so coming back from a minimized window isn't one giant frame.
- */
-const createLoop = ({ requestFrame, cancelFrame, now, step }) => {
-  let frameId = null
-  let last = 0
-  const frame = (time) => {
-    frameId = null
-    const dt = Math.min(MAX_FRAME, Math.max(0, (time - last) / 1000))
-    last = time
-    step(time, dt)
-    frameId = requestFrame(frame)
-  }
-  return {
-    start: () => {
-      if (frameId !== null) return
-      last = now()
-      frameId = requestFrame(frame)
-    },
-    stop: () => {
-      if (frameId === null) return
-      cancelFrame(frameId)
-      frameId = null
-    },
-  }
 }
