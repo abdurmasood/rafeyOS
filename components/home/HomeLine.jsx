@@ -51,12 +51,12 @@ const FetchLine = ({ line }) => (
   </div>
 )
 
-// `onDone` writes what the panel ended with into its entry; a picker's 3D choice comes as the second argument
+// `onDone` writes what the panel ended with into its entry
 const PANELS = Object.freeze({
   // Trusted lib HTML only (bio, contact, README, music usage), never anything typed
   [HOME_PANELS.HTML]: ({ props }) => <div dangerouslySetInnerHTML={{ __html: props.html }} />,
   [HOME_PANELS.PROJECTS_PICKER]: ({ props, active, onDone }) => (
-    <ProjectPicker active={active} chosenId={props.chosenId} onDone={({ chosenId, view3d }) => onDone({ chosenId }, { view3d })} />
+    <ProjectPicker active={active} chosenId={props.chosenId} onDone={({ chosenId }) => onDone({ chosenId })} />
   ),
   [HOME_PANELS.BLOG_PICKER]: ({ props, active, onDone }) => (
     <BlogPicker active={active} slug={props.slug} onDone={({ slug }) => onDone({ slug })} />

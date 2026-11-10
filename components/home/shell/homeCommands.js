@@ -16,7 +16,6 @@ import { musicUsage } from '@/lib/music'
 
 /** Effects only the homepage runs, next to the engine's own (clear, clearHistory). */
 export const HOME_EFFECTS = Object.freeze({
-  PROJECTS_3D: 'projects3d',
   MAILTO: 'mailto',
   NEW_TAB: 'newTab',
   HANDOFF: 'handoff',
@@ -59,13 +58,6 @@ const screenOnly = (display, effects = []) => ({ stdout: '', display, effects })
 const onScreen = (context, display) => (context.tty ? result(display) : engine(context))
 
 const help = () => ({ stdout: `${HELP_TEXT}\n${HELP_HINT_TEXT}\n`, display: [pre(HELP_TEXT), dim(HELP_HINT_TEXT)] })
-
-// The engine's picker and errors; only --3d differs, taking the LoadingBar path to the /projects page, not a window
-const projects = (context) => {
-  const output = engine(context)
-  if (output.stderr?.length || !context.argv.length) return output
-  return result([], [{ type: HOME_EFFECTS.PROJECTS_3D }])
-}
 
 const playerFor = (track) => panel(HOME_PANELS.MUSIC_PLAYER, { trackId: track.id }, FOREGROUND)
 
@@ -159,7 +151,6 @@ const OVERRIDES = {
   help,
   bio: (context) => onScreen(context, [html(bioDescription())]),
   contact: (context) => onScreen(context, [html(contactHtml)]),
-  projects,
   music,
   cat: reader,
   less: reader,

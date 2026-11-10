@@ -122,7 +122,6 @@ export const TerminalApp = ({ windowId, arg }) => {
     cwd: session.cwd,
     shellFs,
     ownsKey: (event) => Boolean(scrollRef.current?.contains(event.target)),
-    openProjects3d: () => windowManager.openApp(APP.PROJECTS),
   })
   const focusInput = () => {
     if (!String(window.getSelection?.() ?? '')) inputRef.current?.focus({ preventScroll: true })

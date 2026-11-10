@@ -97,10 +97,9 @@ const RENDERERS = Object.freeze({
 /**
  * One structured output line as React elements (no HTML strings).
  * @param {{ line: import('@/components/rafeyos/core/commands/lines').Line, panel?: { active: boolean, onDone: Function,
- *   cwd: string, shellFs: import('@/components/rafeyos/core/vfs/shellFs').ShellFs, ownsKey: (event: KeyboardEvent) => boolean,
- *   openProjects3d: () => void } }} props
+ *   cwd: string, shellFs: import('@/components/rafeyos/core/vfs/shellFs').ShellFs, ownsKey: (event: KeyboardEvent) => boolean } }} props
  *   `panel`, for a panel line only: whether it holds the keyboard, its finish, the folder and files nano works in,
- *   whether a key was typed in this window (the pickers listen on the whole page), and the projects picker's 3D view
+ *   and whether a key was typed in this window (the pickers listen on the whole page)
  */
 export const TerminalLine = memo(function TerminalLine({ line, panel }) {
   const Render = RENDERERS[line.type]

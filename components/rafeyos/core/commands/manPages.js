@@ -94,9 +94,8 @@ const PAGES = Object.freeze({
   skills: { summary: 'what Rafey works with', synopsis: ['skills'], description: ["Print Rafey's skills."] },
   projects: {
     summary: "list Rafey's projects",
-    synopsis: ['projects [--3d]'],
+    synopsis: ['projects'],
     description: ['List the projects, each with a one-line summary.'],
-    options: [['--3d', 'open the 3D view of the projects instead']],
   },
   blog: { summary: 'list the blog posts', synopsis: ['blog'], description: ['List the blog posts with their date and reading time.'] },
   music: {
