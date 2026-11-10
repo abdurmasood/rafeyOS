@@ -109,6 +109,20 @@ describe('player physics', () => {
     expect(overlapsBlock(player, 5, 4, 5)).toBe(false)
   })
 
+  it.each([
+    ['west', Math.PI / 2, 0.5, 'x', PLAYER.HALF_WIDTH],
+    ['north', 0, 0.5, 'z', PLAYER.HALF_WIDTH],
+    ['east', EAST, 511.5, 'x', 512 - PLAYER.HALF_WIDTH],
+    ['south', Math.PI, 511.5, 'z', 512 - PLAYER.HALF_WIDTH],
+  ])('stops at the %s edge of the world as at a wall', (side, yaw, start, axis, limit) => {
+    const from = axis === 'x' ? at(start, 5, 5.5, yaw) : at(5.5, 5, start, yaw)
+
+    const player = run(from, floorAt(4), { ...IDLE, forward: 1 }, 1)
+
+    expect(player.pos[axis]).toBeCloseTo(limit, 3)
+    expect(player.pos.y).toBe(5)
+  })
+
   it('lifts itself out of a block it starts inside', () => {
     const player = liftClear(at(5.5, 2, 5.5), floorAt(4))
 
