@@ -24,6 +24,7 @@ const PROCESS_NAMES = Object.freeze({
   [APP.MAIL]: 'geary',
   [APP.PROJECTS]: 'projects',
   [APP.MINECRAFT]: 'minecraft',
+  [APP.STUDIO]: 'studio',
 })
 
 /** @type {Processes} A terminal with no windows around it, as on the homepage: its own bash and nothing else. */

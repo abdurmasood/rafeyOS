@@ -19,6 +19,7 @@ export const APP = Object.freeze({
   SETTINGS: 'settings',
   PROPERTIES: 'properties',
   MINECRAFT: 'minecraft',
+  STUDIO: 'studio',
 })
 
 /** @typedef {typeof APP[keyof typeof APP]} AppId */

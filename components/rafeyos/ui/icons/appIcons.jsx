@@ -90,6 +90,27 @@ const ProjectsIcon = () => (
   </>
 )
 
+/** The studio as the room shows it: an isometric corner at night, moonlit window, glowing monitor, warm lamp and LED strip. */
+const IsoRoom = () => (
+  <>
+    <path d="M24 22l14 7-14 7-14-7z" fill="#232838" />
+    <path d="M24 25.5l8 4-8 4-8-4z" fill="#3b4052" />
+    <path d="M10 29V15l14-7v14z" fill="#1a1e2d" />
+    <path d="M24 22V8l14 7v14z" fill="#283048" />
+    <path d="M13.5 15.25l5.5-2.75v7l-5.5 2.75z" fill="#9db2d8" opacity=".85" />
+    <path d="M28 17.5l5 2.5v4l-5-2.5z" fill="#5b74b8" />
+    <path d="M24.6 9.3l12.8 6.4" stroke="#e9a55c" strokeWidth="1.1" strokeLinecap="round" />
+    <circle cx="34.6" cy="25.4" r="1.4" fill="#ffc27a" />
+  </>
+)
+
+const StudioIcon = () => (
+  <>
+    <rect x="5" y="5" width="38" height="38" rx="9" fill="#10131c" />
+    <IsoRoom />
+  </>
+)
+
 // Minecraft app icon: classic 8×8 creeper face (original pixel SVG, not Mojang art)
 const CREEPER_GREEN = '#5d9c3d'
 const CREEPER_BLACK = '#1a1a1a'
@@ -176,6 +197,7 @@ const APP_ICON_BODIES = Object.freeze({
   [APP.MAIL]: MailIcon,
   [APP.PROJECTS]: ProjectsIcon,
   [APP.MINECRAFT]: MinecraftIcon,
+  [APP.STUDIO]: StudioIcon,
   [APP.SETTINGS]: SettingsIcon,
   [APP.PROPERTIES]: PropertiesIcon,
   trash: TrashIcon,
@@ -253,6 +275,12 @@ const MinecraftTile = () => (
   </Tile>
 )
 
+const StudioTile = () => (
+  <Tile from="#1d2236" to="#0b0d14" rim>
+    <IsoRoom />
+  </Tile>
+)
+
 const SettingsTile = () => (
   <Tile from="#a5a5a5" to="#737373">
     <circle cx="24" cy="24" r="11" fill="none" stroke="#2f2f2f" strokeWidth="5" strokeDasharray="3.9 2.9" />
@@ -295,6 +323,7 @@ const APP_TILE_BODIES = Object.freeze({
   [APP.MAIL]: MailTile,
   [APP.PROJECTS]: ProjectsTile,
   [APP.MINECRAFT]: MinecraftTile,
+  [APP.STUDIO]: StudioTile,
   [APP.SETTINGS]: SettingsTile,
   [APP.PROPERTIES]: PropertiesTile,
   trash: TrashTile,
