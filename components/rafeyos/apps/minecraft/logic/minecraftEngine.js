@@ -20,6 +20,7 @@ import { createSkyDome } from './skyDome'
 import { createHud } from './engineHud'
 import { createLoop } from './frameLoop'
 import { VITALS, createVitals, resetVitals, stepVitals } from './life/vitals'
+import { createLife } from './life/life'
 
 // Fog and the far plane both measure view-space depth, so ending the view just past full fog cuts off nothing visible
 const CAMERA_FAR = FOG.far + 8
@@ -265,7 +266,8 @@ const drawFrame = ({ renderer, view, chunks, wash }) => {
   chunks.warm()
   renderer.setClearColor(view.scene.fog.color)
   renderer.render(view.scene, view.camera)
-  wash.show(view.haze)
+  // Dimmed with the light, or the sea would glow blue on a moonless night
+  wash.show(view.haze * (view.daylight ?? 1))
 }
 
 /**
@@ -278,9 +280,9 @@ const sampleVitals = (player, world, playing) => ({
 })
 
 /** The HUD patch for input going live or not; going live after a Respawn press is what clears the death panel. */
-const playingPatch = (playing, life) => {
-  if (!playing || !life.respawning) return { playing }
-  life.respawning = false
+const playingPatch = (playing, death) => {
+  if (!playing || !death.respawning) return { playing }
+  death.respawning = false
   return { playing, dead: false, cause: null }
 }
 
@@ -345,9 +347,11 @@ const createWash = (host, doc) => {
  *   director?: { frame: (view: { dt: number, eye: { x: number, y: number, z: number }, yaw: number, pitch: number }) =>
  *     null | { camera?: { x: number, y: number, z: number, yaw: number, pitch: number }, fogLift?: number },
  *     toPlayer: (onArrive: () => void) => void, toOrbit: () => void },
+ *   startTime?: number,
  * }} options - `island` and `chunkArrays` come from the world loader (worldLoader.js), the chunks meshed with the
  *   same `edits`. The voxels are copied into a world of the engine's own: physics, aiming and edits read them here.
  *   `chunkArrays` is consumed: the engine empties the map once its first meshes are built, so don't reuse it.
+ *   `startTime`: the time of day to start at, a fraction from midnight (skyClock.js); 08:00 when left out.
  * @returns {{ setActive: (active: boolean) => void, setPaused: (paused: boolean) => void, capture: () => void, play: (onArrive: () => void) => void, toTitle: () => void, respawn: () => void, dispose: () => void }}
  * @throws {WebGLUnavailableError} when the browser can't make a WebGL context; anything else thrown while building
  *   comes after the canvas and renderer went again, so nothing is left behind
@@ -377,7 +381,7 @@ export const createMinecraftEngine = (options) => {
 const assembleEngine = ({
   host, island, chunkArrays, edits = [], onHud = () => {}, onEdit = () => {}, canvas, renderer,
   requestFrame = (run) => requestAnimationFrame(run), cancelFrame = (id) => cancelAnimationFrame(id),
-  now = () => performance.now(), doc, win, director = IDLE_DIRECTOR,
+  now = () => performance.now(), doc, win, director = IDLE_DIRECTOR, startTime,
 }, releases, release) => {
   const world = createWorld(island, edits)
   const player = liftClear(createPlayer(island.spawn), world)
@@ -386,19 +390,21 @@ const assembleEngine = ({
   releases.push(view.dispose, wash.remove)
   const chunks = createChunks(view.scene, world, view.materials, chunkArrays)
   releases.push(chunks.dispose)
+  const life = createLife({ view, startTime })
+  releases.push(life.dispose)
   const shotFog = { clear: FOG, setAt: (eye) => setAtmosphereAt(view, world, eye) }
   const hud = createHud(onHud, player)
   let target = null
   const editor = createEditor({ world, player, chunks, getTarget: () => target, getSelected: hud.selected, onEdit })
   const vitals = createVitals()
-  const life = { respawning: false }
+  const death = { respawning: false }
   const input = createMinecraftInput({ canvas, doc, win, now, on: {
     turn: (dx, dy) => turn(player, dx, dy),
     breakBlock: editor.breakBlock,
     placeBlock: editor.placeBlock,
     select: hud.select,
     scroll: (step) => hud.select(hud.selected() + step),
-    playingChanged: (playing) => hud.emit(playingPatch(playing, life)),
+    playingChanged: (playing) => hud.emit(playingPatch(playing, death)),
   } })
   releases.push(input.dispose)
   releases.push(...[watchSize({ host, win, renderer, camera: view.camera }), watchContextRestore(canvas, chunks)])
@@ -415,12 +421,12 @@ const assembleEngine = ({
   }
   const respawn = () => {
     if (!hud.isDead()) return
-    if (!life.respawning) {
+    if (!death.respawning) {
       if (vitals.deadFor < VITALS.RESPAWN_DELAY) return
       respawnPlayer()
       resetVitals(vitals)
       hud.vitals(vitals)
-      life.respawning = true
+      death.respawning = true
     }
     // Safe to press again: if the browser refused the mouse, the death panel stays and this asks once more
     input.setMuted(false)
@@ -432,6 +438,7 @@ const assembleEngine = ({
     const events = stepVitals(vitals, sampleVitals(player, world, input.isPlaying()), dt)
     if (events.some((event) => event.type === 'dead')) die()
     hud.vitals(vitals)
+    life.beforeView(dt)
     input.tick(time)
     target = updateView(view, world, player)
     const shot = director.frame({ dt, eye: eyePosition(player), yaw: player.yaw, pitch: player.pitch })
