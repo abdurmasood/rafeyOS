@@ -64,13 +64,13 @@ const setupPlants = ({ manifest, shared, plants, meshes, fallback }) =>
 const phoneAt = (clock) => (clock?.matrix ? [clock.matrix[12], clock.matrix[13], clock.matrix[14]] : undefined)
 
 /** He and the chair top: one rig and poser; each mesh is coloured from the layer holding its parts. */
-const setupFigure = ({ manifest, shared, plants, meshes, fallback }) => {
+const setupFigure = ({ manifest, shared, plants, meshes, fallback, seed }) => {
   if (!meshes.length) return null
   if (!manifest.figure || !plants) {
     for (const mesh of meshes) mesh.material = fallback // a manifest from before he moved: show the plate
     return null
   }
-  const { bones, rests } = manifest.figure
+  const { bones, rests, mouse, keyPitch } = manifest.figure
   const rig = createFigureRig(bones)
   for (const mesh of meshes) {
     const layer = layerFor(manifest, mesh.userData.studio_name)
@@ -78,13 +78,13 @@ const setupFigure = ({ manifest, shared, plants, meshes, fallback }) => {
       ? createFigureMaterial(shared, { plants, layerRect: layer.rect, atlasRect: layer.atlasRect, bones: rig.matrices })
       : fallback
   }
-  return { meshes, rig, poser: createFigurePoser({ bones, rests, phone: phoneAt(manifest.clock) }) }
+  return { meshes, rig, poser: createFigurePoser({ bones, rests, mouse, keyPitch, seed, phone: phoneAt(manifest.clock) }) }
 }
 
 /**
  * @returns {{ shared, room, swaying: Array<{ sway, place }>, figure, shadows, dust, dispose }}
  */
-export const buildStudio = ({ manifest, plateViewProj, scene, base, deltas, plants, hazeSteps, pixelRatio }) => {
+export const buildStudio = ({ manifest, plateViewProj, scene, base, deltas, plants, hazeSteps, pixelRatio, seed }) => {
   const byRole = meshesByRole(scene)
   const shared = createSharedUniforms({ manifest, plateViewProj, base, deltas })
   const room = createRoomMaterial(shared, hazeSteps)
@@ -106,7 +106,7 @@ export const buildStudio = ({ manifest, plateViewProj, scene, base, deltas, plan
   } else if (treeMesh) {
     treeMesh.material = room // a manifest without the tree's layer: show the plate, as the plants do
   }
-  const figure = setupFigure({ manifest, shared, plants, meshes: byRole.figure, fallback: room })
+  const figure = setupFigure({ manifest, shared, plants, meshes: byRole.figure, fallback: room, seed })
   const monstera = manifest.deltas?.up ? plantParts.find((part) => part.name === FLOOR_MONSTERA) : null
   const shadows = createShadowRig({ manifest, shared, tree, monstera })
 

@@ -6,6 +6,7 @@ import { plateViewProjection } from '@/lib/studio/camera'
 import { lineStarts, normaliseSource } from '@/lib/studio/code'
 import { candleGain } from '@/lib/studio/flicker'
 import { DRACO_PATH, PLATE_HALF_TAN, STUDIO_ASSETS, manifest } from '@/lib/studio/manifest'
+import { sessionFromUrl } from '@/lib/studio/session'
 import { WIND_RESPONSE } from '@/lib/studio/motion'
 import { createTypingTimeline } from '@/lib/studio/typing'
 import { windAt, windStrength } from '@/lib/studio/wind'
@@ -24,9 +25,9 @@ const TEXTURE_URLS = [
   ...(HAS_PLANTS ? [`${STUDIO_ASSETS}/plants.webp`] : []),
 ]
 const BACKGROUND = new Color().setRGB(...manifest.background, LinearSRGBColorSpace)
-// What he types on the monitor: the shader that draws this room. He's already a dozen lines in when you arrive.
+// What he types on the monitor: the shader that draws this room. Each visit starts somewhere in the middle of it.
 const CODE = normaliseSource(roomFragment)
-const OPENING_LINES = 12
+const CODE_LINES = lineStarts(CODE)
 
 // Importing this module starts the downloads, so the homepage's prefetch fetches the assets too
 useGLTF.preload(GLB_URL, DRACO_PATH)
@@ -74,7 +75,11 @@ export function StudioScene({ onReady, quality }) {
   const reducedMotion = useMemo(prefersReducedMotion, [])
   const rest = useMemo(restPose, [])
   const at = useMemo(frozenAt, [])
-  const timeline = useMemo(() => createTypingTimeline(CODE, { startAt: lineStarts(CODE)[OPENING_LINES] }), [])
+  const session = useMemo(() => sessionFromUrl(window.location.search, CODE_LINES.length), [])
+  const timeline = useMemo(
+    () => createTypingTimeline(CODE, { seed: session.seed, startAt: CODE_LINES[session.openingLine] }),
+    [session],
+  )
 
   const studio = useMemo(
     () =>
@@ -87,6 +92,7 @@ export function StudioScene({ onReady, quality }) {
         plants: plants && preparePlate(plants),
         hazeSteps: quality.hazeSteps,
         pixelRatio: gl.getPixelRatio(),
+        seed: session.seed,
       }),
     // Quality changes are applied below without rebuilding
     // eslint-disable-next-line react-hooks/exhaustive-deps
