@@ -47,6 +47,26 @@ OVERSCAN_HEIGHT = round(2400 * PLATE_SCALE)
 OVERSCAN_SENSOR_HEIGHT = 43.2
 REF_CROP = ((OVERSCAN_WIDTH - REF_SIZE) // 2, (OVERSCAN_HEIGHT - REF_SIZE) // 2, REF_SIZE, REF_SIZE)
 
+# What fills the west wall's opening. Rafey swapped the window for a door (2026-11-10, P3): he walks out of it for
+# tea. The window code stays, chosen by this, for rooms that keep one. tools/studio/build.sh sets it; it stays the
+# window until the page draws the door (P3 step 2), so a build can't leave the app with a door it can't show.
+OPENING_WINDOW, OPENING_DOOR = "window", "door"
+OPENING = os.environ.get("STUDIO_OPENING", OPENING_WINDOW)
+if OPENING not in (OPENING_WINDOW, OPENING_DOOR):
+    raise ValueError(f"STUDIO_OPENING must be {OPENING_WINDOW!r} or {OPENING_DOOR!r}, got {OPENING!r}")
+WINDOW_CUTTER = "Window_Cutter"
+WINDOW_HOLE = "Window Hole"  # the boolean on "Walls" that cuts the window
+MOON_SPILL = "Moon Spill (plants)"  # moonlight on the window-shelf plants (light-linked to them)
+DOOR_CUTTER = "Door Cutter"
+DOOR_LEAF = "Door Leaf"
+HALL = "Hall"
+HALL_LIGHT = "Hall Light"
+KITCHEN_LIGHT = "Kitchen Light"  # in a room off the hall the camera never sees into
+TV_LIGHT = "TV Light"  # likewise; the page makes it flicker (the tv delta)
+DOOR_FACTS = "studio_door"  # scene property: the door's hinge, size and opening, and the hall (studio_door.py)
+MUG = "Mug + Coaster"
+MUG_CUP = "Mug Cup"  # the mug alone, split from its coaster so he can pick it up (studio_figure.py)
+
 MOONLIGHT = "Moonlight"
 MOONBEAM = "Moonbeam (haze only)"
 CANDLE_LIGHT = "Candle Light"
@@ -66,8 +86,8 @@ FIGURE_LIVE = "studio_live"  # figure parts drawn live on the page (they type an
 FIGURE_NO_SHADOW = "studio_no_shadow"  # parts that travel far: their shadows would stay behind as ghosts
 FIGURE_LAYER = "studio_layer"  # which colour layer a live part takes its colour from: "figure" or "backrest"
 FIGURE_RIG = "studio_figure_rig"  # scene property: the figure's bones and which bones move each live part
-FIGURE_ROLE = "studio_role_in_figure"  # what a live part is: "him", his "chair", the "guitar" or the "mouse" he moves
-ROLE_HIM, ROLE_CHAIR, ROLE_GUITAR, ROLE_MOUSE = "him", "chair", "guitar", "mouse"
+FIGURE_ROLE = "studio_role_in_figure"  # what a live part is: "him", his "chair", the "guitar", the "mouse", the "door", his "mug"
+ROLE_HIM, ROLE_CHAIR, ROLE_GUITAR, ROLE_MOUSE, ROLE_DOOR, ROLE_MUG = "him", "chair", "guitar", "mouse", "door", "mug"
 MONITOR_SCREEN = "Monitor Screen"
 SCREEN_GLOW = "Screen Glow"  # the monitor's emissive material: off in the screen_off render
 FIGURE_SHADOW = f"{FIGURE_PREFIX}Shadow"  # his camera-invisible shadow caster (studio_mannequin.shadow_caster)

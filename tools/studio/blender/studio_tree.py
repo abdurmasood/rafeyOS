@@ -200,7 +200,7 @@ def _math(nodes, links, operation: str, a, b):
     return node.outputs[0]
 
 
-def _window_mask(nodes, links, opening: dict):
+def window_mask(nodes, links, opening: dict):
     """1 for camera rays that did NOT come through the window opening, else 0.
 
     The room is an open diorama, so the camera also sees over the wall tops; the tree must
@@ -248,7 +248,7 @@ def _material(name: str, colour: tuple[float, float, float], opening: dict, tran
         links.new(trans.outputs[0], mix.inputs[2])
         surface = mix.outputs[0]
     masked = nodes.new("ShaderNodeMixShader")
-    links.new(_window_mask(nodes, links, opening), masked.inputs["Fac"])
+    links.new(window_mask(nodes, links, opening), masked.inputs["Fac"])
     links.new(surface, masked.inputs[1])
     links.new(nodes.new("ShaderNodeBsdfTransparent").outputs[0], masked.inputs[2])
     links.new(masked.outputs[0], out.inputs["Surface"])

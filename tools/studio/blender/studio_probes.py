@@ -23,8 +23,9 @@ from mathutils import Vector
 
 import studio_common as sc
 
-# The probe grid, Blender world metres: the floor he can walk and the chair, at knee, chest and head height
-PROBE_X = (-1.9, 1.7)
+# The probe grid, Blender world metres: the floor he can walk and the chair, at knee, chest and head height. With the
+# door it reaches through the doorway into the hall (studio_door.py), keeping the same grid points in the room.
+PROBE_X = (-3.1 if sc.OPENING == sc.OPENING_DOOR else -1.9, 1.7)
 PROBE_Y = (-1.7, 1.5)
 PROBE_Z = (0.3, 0.9, 1.5)
 PROBE_STEP = 0.4
@@ -35,6 +36,7 @@ BAKE_BLOCK = 4  # texels a face gets in the bake image (its middle texel is read
 BAKE_SPP = 64
 FACE_NORMALS = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))  # Blender axes, in bake order
 INSIDE_HITS = 3  # a probe whose rays meet the back of a surface in this many of six directions is inside furniture
+ROOM_XY = ((-2.0, 2.0), (-2.0, 2.0))  # inside the walls (the room is open on its east and south sides)
 LUT_SIZE = 33
 LUT_STOPS = (-12.0, 6.0)  # log2 range of scene-linear values the LUT covers
 
@@ -78,6 +80,19 @@ def inside_furniture(scene: bpy.types.Scene, point: tuple[float, float, float]) 
         if normal is not None and normal.dot(d) > 0:
             backs += 1
     return backs >= INSIDE_HITS
+
+
+def in_open_space(point: tuple[float, float, float]) -> bool:
+    """In the room, or in the hall behind the door: not inside a wall or out in the void around the diorama."""
+    x, y, _ = point
+    (rx0, rx1), (ry0, ry1) = ROOM_XY
+    if rx0 < x < rx1 and ry0 < y < ry1:
+        return True
+    raw = bpy.context.scene.get(sc.DOOR_FACTS)
+    if raw is None:
+        return False
+    hall = json.loads(raw)["hall"]
+    return all(low < v < high for low, v, high in zip(hall["low"][:2], (x, y), hall["high"][:2]))
 
 
 def him_hidden(changes: list) -> list:
@@ -138,14 +153,17 @@ def probe_cubes(points: list, valid: list) -> tuple[bpy.types.Object, bpy.types.
     return ob, image, per_row
 
 
-def render_probes(scene: bpy.types.Scene, out_dir: str, temporarily) -> None:
-    """Bake the probe cubes and write probes.exr (one BAKE_BLOCK square per face) and probes.json."""
+def render_probes(scene: bpy.types.Scene, out_dir: str, temporarily, extra: list = (), name: str = "probes.json") -> None:
+    """Bake the probe cubes and write `name` (probes.json): each valid probe's six face colours.
+
+    `extra`: (target, attribute, value) changes held while baking, e.g. the door open for a second set."""
     points, counts = probe_points()
-    valid = [not inside_furniture(scene, p) for p in points]
+    valid = [in_open_space(p) and not inside_furniture(scene, p) for p in points]
     ob, image, per_row = probe_cubes(points, valid)
     bake = scene.render.bake
     changes = him_hidden(
         [
+            *extra,
             # the plates' cached scene doesn't hold the probe cubes; without this the bake reads nothing
             (scene.render, "use_persistent_data", False),
             (scene.cycles, "samples", BAKE_SPP),
@@ -176,10 +194,10 @@ def render_probes(scene: bpy.types.Scene, out_dir: str, temporarily) -> None:
         cubes.append(sides)
     bpy.data.objects.remove(ob)
     bpy.data.images.remove(image)
-    with open(os.path.join(out_dir, "probes.json"), "w") as f:
+    with open(os.path.join(out_dir, name), "w") as f:
         json.dump({"points": points, "counts": counts, "step": PROBE_STEP, "valid": valid, "faces": FACE_NORMALS, "cubes": cubes}, f)
     lit = np.array([c for c, ok in zip(cubes, valid) if ok])
-    print(f"[render] probes: {sum(valid)} of {len(points)} baked ({counts[0]}x{counts[1]}x{counts[2]}), median face light {np.round(np.median(lit, axis=(0, 1)), 4)}")
+    print(f"[render] {name}: {sum(valid)} of {len(points)} baked ({counts[0]}x{counts[1]}x{counts[2]}), median face light {np.round(np.median(lit, axis=(0, 1)), 4)}")
 
 
 def colour_balance_gain(scene: bpy.types.Scene) -> tuple[float, float, float]:

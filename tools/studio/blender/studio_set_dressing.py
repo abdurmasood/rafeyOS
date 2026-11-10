@@ -1,4 +1,5 @@
-"""Set dressing for the web build: an opened sash window, a night sky farther out, a tree, and Rafey at the desk.
+"""Set dressing for the web build: the door where the window was (or, for a window, the sash opened, a night sky
+farther out and a tree), a near-black floor, and Rafey at the desk.
 
 Applied in memory only. Each step is idempotent within one Blender session.
 """
@@ -15,6 +16,7 @@ import bpy  # noqa: E402
 from mathutils import Vector  # noqa: E402
 
 import studio_common as sc  # noqa: E402
+import studio_door  # noqa: E402
 import studio_figure  # noqa: E402
 import studio_tree  # noqa: E402
 
@@ -188,7 +190,10 @@ def black_floor(scene: bpy.types.Scene) -> None:
 
 def apply(scene: bpy.types.Scene) -> None:
     black_floor(scene)
-    open_window(scene)
-    sky_backdrop(scene)
-    plant_tree(scene)
+    if sc.OPENING == sc.OPENING_DOOR:
+        studio_door.build(scene)
+    else:
+        open_window(scene)
+        sky_backdrop(scene)
+        plant_tree(scene)
     studio_figure.build(scene)

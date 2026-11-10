@@ -58,7 +58,8 @@ GUITAR_PARTS = ("Guitar Body", "Guitar Neck", "Guitar Hardware")  # body first: 
 CHAIR_FABRIC = "Chair Back Mesh"  # see-through, so it gets a colour layer of its own (render.py)
 CHAIR_ARMS = "Chair Arms"
 ARMREST_LIFT = 0.013  # m: the wrist pivot above the armrest top, so fingertips just touch it
-LAYER_FIGURE, LAYER_BACKREST = "figure", "backrest"
+LAYER_FIGURE, LAYER_BACKREST, LAYER_DOOR = "figure", "backrest", "door"
+CORK = "Cork"  # the coaster's material: it stays on the desk when he takes the mug
 # Where the fingers rest: rows of key caps counted from the front (space row 0), and each finger's key
 # in that row from the left, in FINGER_NAMES order (f d s a for his left hand, j k l ; for his right)
 HOME_ROW = 2
@@ -79,6 +80,8 @@ class Rig:
         self.synth: dict | None = None
         self.headphones: dict | None = None
         self.guitar: dict | None = None
+        self.door: dict | None = None
+        self.mug: dict | None = None
         self.motion_basis: dict | None = None
 
     def bone(self, name: str, parent: str | None, pivot: Vector) -> str:
@@ -110,6 +113,8 @@ class Rig:
                 "synth": self.synth,
                 "headphones": self.headphones,
                 "guitar": self.guitar,
+                "door": self.door,
+                "mug": self.mug,
                 "motionBasis": self.motion_basis,
             }
         )
@@ -290,6 +295,40 @@ def guitar_parts(rig: Rig) -> dict:
     return {"centre": list(centre), "bottom": list(low), "top": list(high)}
 
 
+def door_part(rig: Rig) -> dict | None:
+    """The door's leaf swings on its own bone about its hinge (studio_door.py). None in a room with a window."""
+    raw = bpy.context.scene.get(sc.DOOR_FACTS)
+    if raw is None:
+        return None
+    rig.part(sc.obj(sc.DOOR_LEAF), ["door"], layer=LAYER_DOOR, role=sc.ROLE_DOOR)
+    return json.loads(raw)
+
+
+def mug_part(rig: Rig) -> dict:
+    """He takes his mug for tea: the mug, split from its coaster (which stays on the desk), is live on its own bone.
+    Returns where it rests: the bottom of the cup (the bone's pivot), its rim and its handle."""
+    source = sc.obj(sc.MUG)
+    cork = {i for i, m in enumerate(source.data.materials) if m is not None and m.name == CORK}
+    cup_mesh, coaster_mesh = source.data.copy(), source.data.copy()
+    for mesh, keep_cork in ((cup_mesh, False), (coaster_mesh, True)):
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if (f.material_index in cork) != keep_cork], context="FACES")
+        bm.to_mesh(mesh)
+        bm.free()
+    source.data = coaster_mesh
+    cup = bpy.data.objects.new(sc.MUG_CUP, cup_mesh)
+    cup.matrix_world = source.matrix_world.copy()
+    bpy.context.scene.collection.objects.link(cup)
+    rig.part(cup, ["mug"], role=sc.ROLE_MUG)
+    points = world_points(cup)
+    middle = sum(points, Vector()) / len(points)
+    bottom = min(p.z for p in points)
+    axis = Vector((middle.x, middle.y))
+    handle = max(points, key=lambda p: (p.xy - axis).length)
+    return {"rest": [middle.x, middle.y, bottom], "top": max(p.z for p in points), "handle": list(handle)}
+
+
 def world_points(ob: bpy.types.Object) -> list[Vector]:
     evaluated = ob.evaluated_get(bpy.context.evaluated_depsgraph_get())
     points = [ob.matrix_world @ v.co for v in evaluated.to_mesh().vertices]
@@ -426,6 +465,11 @@ def build(scene: bpy.types.Scene) -> None:
     # The mouse moves under his hand, so it's live too, on its own bone (its shadow stays in the plates: a few cm)
     rig.part(sc.obj(MOUSE), ["mouse"], role=sc.ROLE_MOUSE)
     rig.bone("mouse", None, Vector(rig.mouse))
+    rig.door = door_part(rig)
+    if rig.door:
+        rig.bone("door", None, Vector(rig.door["hinge"]))  # parentless: it swings in the wall, not with him
+    rig.mug = mug_part(rig)
+    rig.bone("mug", None, Vector(rig.mug["rest"]))
     rig.key_pitch = key_pitch
     rig.desk = desk_edge(home)
     rig.synth = synth_facts(chair)
