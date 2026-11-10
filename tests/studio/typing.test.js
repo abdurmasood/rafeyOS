@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { roomFragment } from '@/components/studio/shaders/room.glsl'
-import { normaliseSource } from '@/lib/studio/code'
+import { lineStarts, normaliseSource } from '@/lib/studio/code'
 import {
   BACKSPACE,
   FINGERS,
@@ -174,15 +174,16 @@ describe('pace, pauses and glances on the room shader', () => {
 
 describe('the same keystrokes as before the motion pass', () => {
   it('keeps the seed-7 session on the room shader exactly as it was', () => {
-    // Fingerprint of the schedule from before hands, pace and shaped glances were added
+    // Fingerprint of the schedule from before hands, pace and shaped glances were added. Re-recorded
+    // deliberately, whenever the room shader he types gains layers (P1: figure gone, screen off; P2: him up, guitar off)
     const timeline = createTypingTimeline(normaliseSource(roomFragment))
     let checksum = 0
     for (let i = 0; i < 4000; i++) {
       const { typed, extra } = timeline.at(i * 0.377)
       checksum = (checksum * 31 + typed * 7 + extra.length) % 1000000007
     }
-    expect(timeline.duration).toBeCloseTo(1505.9645313731307, 9)
-    expect(checksum).toBe(63905992)
+    expect(timeline.duration).toBeCloseTo(1929.6825382623651, 9)
+    expect(checksum).toBe(801999114)
   })
 })
 
@@ -305,5 +306,38 @@ describe('the shape of a glance', () => {
     expect(samples[peakAt].trail).toBeLessThan(samples[peakAt].amount)
     expect(Math.max(...samples.map((g) => g.amount))).toBeLessThanOrEqual(1 + GLANCE_SHAPE.overshoot + 1e-9)
     expect(samples.at(-1).trail).toBeLessThan(0.05)
+  })
+})
+
+describe('pauses', () => {
+  it('lists every gap at least as long as asked, where at() sees it', () => {
+    const room = normaliseSource(roomFragment)
+    const timeline = createTypingTimeline(room, { startAt: lineStarts(room)[12] })
+    const pauses = timeline.pauses(2.5)
+    expect(pauses.length).toBeGreaterThan(40)
+    for (const { start, length } of pauses) {
+      expect(length).toBeGreaterThanOrEqual(2.5)
+      expect(start).toBeGreaterThanOrEqual(0)
+      expect(start).toBeLessThan(timeline.duration)
+      expect(timeline.at(start + 0.01).pause.length).toBeCloseTo(length, 6)
+    }
+  })
+})
+
+describe('active typing time', () => {
+  it('runs only while he is hitting keys: it stands still through a stop, keeps going through a quick gap', () => {
+    const room = normaliseSource(roomFragment)
+    const timeline = createTypingTimeline(room, { startAt: lineStarts(room)[12] })
+    const [stop] = timeline.pauses(2.5)
+    const a = timeline.at(stop.start + 0.5).active
+    const b = timeline.at(stop.start + stop.length - 0.1).active
+    expect(b).toBeCloseTo(a, 9) // a long stop: still
+    let previous = timeline.at(0).active
+    for (let t = 0.01; t < 60; t += 0.01) {
+      const now = timeline.at(t).active
+      expect(now - previous).toBeGreaterThanOrEqual(-1e-9) // never runs backwards
+      expect(now - previous).toBeLessThanOrEqual(0.01 + 1e-9) // never faster than the clock
+      previous = now
+    }
   })
 })
