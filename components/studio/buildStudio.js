@@ -181,9 +181,9 @@ const setupFigure = ({ manifest, shared, plants, meshes, fallback, seed, light }
 /**
  * @returns {{ shared, room, swaying: Array<{ sway, place }>, figure, shadows, dust, dispose }}
  */
-export const buildStudio = ({ manifest, plateViewProj, scene, base, deltas, plants, lutImage = null, hazeSteps, pixelRatio, seed }) => {
+export const buildStudio = ({ manifest, plateViewProj, scene, base, deltas, plants, lutImage = null, keyMap = null, hazeSteps, pixelRatio, seed }) => {
   const byRole = meshesByRole(scene)
-  const shared = createSharedUniforms({ manifest, plateViewProj, base, deltas })
+  const shared = createSharedUniforms({ manifest, plateViewProj, base, deltas, keyMap })
   const room = createRoomMaterial(shared, hazeSteps)
   for (const mesh of [...byRole.room, ...byRole.ground]) mesh.material = room
   for (const mesh of scene.children) mesh.frustumCulled = false

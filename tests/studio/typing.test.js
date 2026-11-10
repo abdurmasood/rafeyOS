@@ -175,15 +175,16 @@ describe('pace, pauses and glances on the room shader', () => {
 describe('the same keystrokes as before the motion pass', () => {
   it('keeps the seed-7 session on the room shader exactly as it was', () => {
     // Fingerprint of the schedule from before hands, pace and shaped glances were added. Re-recorded
-    // deliberately, whenever the room shader he types gains layers (P1: figure gone, screen off; P2: him up, guitar off)
+    // deliberately, whenever the room shader he types gains layers (P1: figure gone, screen off; P2: him up, guitar off;
+    // the synth's keys pressed)
     const timeline = createTypingTimeline(normaliseSource(roomFragment))
     let checksum = 0
     for (let i = 0; i < 4000; i++) {
       const { typed, extra } = timeline.at(i * 0.377)
       checksum = (checksum * 31 + typed * 7 + extra.length) % 1000000007
     }
-    expect(timeline.duration).toBeCloseTo(1929.6825382623651, 9)
-    expect(checksum).toBe(801999114)
+    expect(timeline.duration).toBeCloseTo(2265.4852493438707, 9)
+    expect(checksum).toBe(533521694)
   })
 })
 

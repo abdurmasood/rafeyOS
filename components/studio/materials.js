@@ -18,6 +18,7 @@ import {
   Vector4,
 } from 'three'
 import { WIND_DIRECTION } from '@/lib/studio/motion'
+import { KEY_COUNT } from '@/lib/studio/synthKeys'
 import { roomFragment, roomVertex } from './shaders/room.glsl'
 import {
   dustFragment,
@@ -48,7 +49,20 @@ const LAYERS = Object.freeze({
   Body: 'body',
   Guitar: 'guitar',
   Screen: 'screen',
+  KeysA: 'keysA',
+  KeysB: 'keysB',
+  KeysBlack: 'keysBlack',
 })
+
+/** The key map holds exact key numbers: never filtered, never mipmapped, never colour-converted. */
+export const prepareKeyMap = (texture) => {
+  texture.colorSpace = NoColorSpace
+  texture.generateMipmaps = false
+  texture.minFilter = NearestFilter
+  texture.magFilter = NearestFilter
+  texture.needsUpdate = true
+  return texture
+}
 
 /** Plates are display-referred bytes: sample them raw, with mipmaps for smaller windows. */
 export const preparePlate = (texture, { mipmaps = true } = {}) => {
@@ -84,12 +98,13 @@ const boxOf = ([a, b]) => ({
 })
 
 /** The uniforms every studio material shares. Targets and matrices are filled in by the shadow rig. */
-export const createSharedUniforms = ({ manifest, plateViewProj, base, deltas }) => {
+export const createSharedUniforms = ({ manifest, plateViewProj, base, deltas, keyMap = null }) => {
   const room = boxOf(manifest.room)
   const { opening } = manifest
   const layers = layerUniforms(deltas ? manifest.deltas : null)
+  const hasKeys = Boolean(keyMap && manifest.keys && ['HAS_KEYSA', 'HAS_KEYSB', 'HAS_KEYSBLACK'].every((d) => d in layers.defines))
   return {
-    defines: layers.defines,
+    defines: { ...layers.defines, ...(hasKeys ? { HAS_KEYS: '' } : {}) },
     uniforms: {
       ...layers.uniforms,
       uPlateViewProj: { value: plateViewProj },
@@ -104,6 +119,9 @@ export const createSharedUniforms = ({ manifest, plateViewProj, base, deltas }) 
       uLiveLight: { value: 0 }, // his colour: 0 from the seated render .. 1 lit live
       uGuitarLive: { value: 0 }, // the guitar's colour: 0 from the render (on its hook) .. 1 lit live (in his hands)
       uScreenOff: { value: 0 }, // 0 awake .. 1 the monitor asleep
+      uKeyMap: { value: keyMap }, // which of Synth A's keys each plate pixel shows (studio_keys.py)
+      uKeyRect: { value: rect(manifest.keys?.rect ?? [0, 0, 0, 0]) },
+      uKeyPress: { value: new Float32Array(KEY_COUNT) }, // how far down each key is, 0..1 (synthKeys.js)
       uMoonPos: { value: new Vector3(...manifest.moon.position) },
       uMoonDir: { value: new Vector3(...manifest.moon.direction) },
       uMoonCosCone: { value: Math.cos(((manifest.moon.coneDeg / 2) * Math.PI) / 180) },

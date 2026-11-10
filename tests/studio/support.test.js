@@ -137,7 +137,21 @@ describe('studio manifest', () => {
     for (const key of ['desk', 'synth', 'headphones', 'guitar']) expect(manifest.figure[key]).toBeTruthy()
     for (const delta of ['figure', 'body', 'guitar', 'screen']) expect(manifest.deltas[delta]).toBeTruthy()
     for (const layer of ['f', 'g']) expect(manifest.plantLayers[layer]).toBeTruthy() // the empty chair
+    // Synth A's keys, pressed as he plays: the key map, a pressed render per group, a footprint per key
+    for (const delta of ['keysA', 'keysB', 'keysBlack']) expect(manifest.deltas[delta]).toBeTruthy()
+    expect(manifest.keys.count).toBe(manifest.figure.synthKeys.length)
+    expect(manifest.figure.synthKeys.filter((k) => k.black)).toHaveLength(27)
     expect(manifest.light.probes.valid.filter(Boolean).length).toBeGreaterThan(200)
+  })
+
+  it('rejects synth keys without a footprint, and a key map without its rect', () => {
+    const root = [{ name: 'root', parent: -1, pivot: [0, 0, 0] }]
+    expect(() => validateManifest({ ...manifest, figure: { bones: root, synthKeys: [{ back: [0, 0, 0], front: [0, 0], half: 0.01 }] } })).toThrow(
+      new StudioManifestError('studio manifest figure synthKeys need, per key (64 at most), its back and front points and a half width'),
+    )
+    expect(() => validateManifest({ ...manifest, keys: { file: 'keys.webp', count: 63 } })).toThrow(
+      new StudioManifestError('studio manifest keys need their map file, its rect on the plate and a key count (64 at most)'),
+    )
   })
 
   it('rejects live-light data that does not match its grid', () => {

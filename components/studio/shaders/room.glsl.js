@@ -1,7 +1,7 @@
 // The static room. Proxies show the projected Cycles plate, and each light layer is added back
 // with a live gain, so at rest (every gain 1, nothing moved) the pixels equal the render:
 //   D = base − (1 − T_tree)·ΔMoon + (k_beam − 1)·ΔHaze + (g_candle − 1)·ΔCandle + (V_live − V_rest)·ΔUp
-//       + gone·ΔFigure + up·ΔBody + taken·ΔGuitar + asleep·ΔScreen
+//       + gone·ΔFigure + up·ΔBody + taken·ΔGuitar + asleep·ΔScreen + pressed[key]·ΔKeys(key)
 import { beamChunk, deltaChunk, moonShadowChunk, openingChunk, plateChunk } from './common.glsl'
 
 export const roomVertex = /* glsl */ `
@@ -101,6 +101,27 @@ ${layerUniforms('Body')}
 ${layerUniforms('Guitar')}
 ${layerUniforms('Screen')}
 
+// Synth A's keys, each as far down as his fingers press it: the key map says which key a pixel shows,
+// and which of the three pressed renders has that key held down
+uniform sampler2D uKeyMap;
+uniform vec4 uKeyRect;
+uniform float uKeyPress[64];
+${layerUniforms('KeysA')}
+${layerUniforms('KeysB')}
+${layerUniforms('KeysBlack')}
+
+vec3 keyPressed(vec2 uv) {
+  vec3 key = texture2D(uKeyMap, (uv - uKeyRect.xy) / (uKeyRect.zw - uKeyRect.xy)).rgb;
+  int number = int(key.r * 255.0 + 0.5) - 1;
+  if (number < 0) return vec3(0.0);
+  float pressed = uKeyPress[number];
+  if (pressed <= 0.0) return vec3(0.0);
+  int group = int(key.g * 255.0 + 0.5);
+  if (group == 0) return pressed * sampleDelta(${layer('KeysA')});
+  if (group == 1) return pressed * sampleDelta(${layer('KeysB')});
+  return pressed * sampleDelta(${layer('KeysBlack')});
+}
+
 void main() {
   vec2 uv = plateUv(vPlateClip);
   vec3 colour = texture2D(uBase, uv, PLATE_LOD_BIAS).rgb;
@@ -127,6 +148,9 @@ void main() {
 #endif
 #ifdef HAS_SCREEN
   if (uScreenOff > 0.0 && insideRect(uv, uScreenRect)) colour += uScreenOff * sampleDelta(${layer('Screen')});
+#endif
+#ifdef HAS_KEYS
+  if (insideRect(uv, uKeyRect)) colour += keyPressed(uv);
 #endif
   gl_FragColor = vec4(clamp(colour, 0.0, 1.0), 1.0);
 }

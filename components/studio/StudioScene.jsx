@@ -7,7 +7,8 @@ import { lineStarts, normaliseSource } from '@/lib/studio/code'
 import { candleGain } from '@/lib/studio/flicker'
 import { DRACO_PATH, PLATE_HALF_TAN, STUDIO_ASSETS, manifest } from '@/lib/studio/manifest'
 import { carry } from '@/lib/studio/activities'
-import { createClipMixer, createSeatedClip, createTypingClip, decodeMotion, sampleClip, stageMatrix } from '@/lib/studio/clips'
+import { createClipMixer, createFingerStrikes, createSeatedClip, createTypingClip, decodeMotion, handLift, sampleClip, smoothClip, stageMatrix } from '@/lib/studio/clips'
+import { createKeyPresser } from '@/lib/studio/synthKeys'
 import { POSE, mouseReachOf } from '@/lib/studio/figurePose'
 import { ACTIVITY, NUDGE, planNight } from '@/lib/studio/moods'
 import { sessionFromUrl } from '@/lib/studio/session'
@@ -16,7 +17,7 @@ import { WIND_RESPONSE } from '@/lib/studio/motion'
 import { createTypingTimeline } from '@/lib/studio/typing'
 import { windAt, windStrength } from '@/lib/studio/wind'
 import { buildStudio } from './buildStudio'
-import { preparePlate } from './materials'
+import { prepareKeyMap, preparePlate } from './materials'
 import { MonitorCode } from './MonitorCode'
 import { PhoneClock } from './PhoneClock'
 import { roomFragment } from './shaders/room.glsl'
@@ -25,11 +26,15 @@ const GLB_URL = `${STUDIO_ASSETS}/studio.glb`
 const HAS_DELTAS = Object.keys(manifest.deltas ?? {}).length > 0
 const HAS_PLANTS = Object.keys(manifest.plantLayers ?? {}).length > 0
 const HAS_LIGHT = Boolean(manifest.light)
+const HAS_KEYS = Boolean(manifest.keys && manifest.figure?.synthKeys)
+const LUT_URL = `${STUDIO_ASSETS}/lut.png`
+const KEYS_URL = HAS_KEYS ? `${STUDIO_ASSETS}/${manifest.keys.file}` : null
 const TEXTURE_URLS = [
   `${STUDIO_ASSETS}/base.webp`,
   ...(HAS_DELTAS ? [`${STUDIO_ASSETS}/deltas.webp`] : []),
   ...(HAS_PLANTS ? [`${STUDIO_ASSETS}/plants.webp`] : []),
-  ...(HAS_LIGHT ? [`${STUDIO_ASSETS}/lut.png`] : []),
+  ...(HAS_LIGHT ? [LUT_URL] : []),
+  ...(HAS_KEYS ? [KEYS_URL] : []),
 ]
 const BACKGROUND = new Color().setRGB(...manifest.background, LinearSRGBColorSpace)
 // What he types on the monitor: the shader that draws this room. Each visit starts somewhere in the middle of it.
@@ -48,6 +53,9 @@ const clipToCheck = () => new URLSearchParams(window.location.search).get('clip'
 const CLIP_CHECK = Object.freeze({ from: [1.2, 0, 0.2], yaw: Math.PI / 2, length: 2.2 }) // across the rug toward the window wall
 // `/os?app=studio&live` lights him live all the time, even seated, to compare the live light with the render
 const forceLive = () => new URLSearchParams(window.location.search).has('live')
+// `/os?app=studio&keys` holds every sixth of Synth A's keys down, apart like a played chord's (each pressed key's
+// look assumes its neighbours are up), to check the pressed renders line up with the room
+const allKeysDown = () => new URLSearchParams(window.location.search).has('keys')
 // `/os?app=studio&at=<seconds>` freezes everything at one moment of his session, to check a pose
 const frozenAt = () => {
   const value = new URLSearchParams(window.location.search).get('at')
@@ -91,10 +99,12 @@ const poseFigure = (studio, timeline, night, frame, { time, still }) => {
   const typing = typingClip ? typingClip.pose(extras.typing) : null
   const s = extras.seated
   const seated = s && seatedClips?.[s.name] ? seatedClips[s.name].pose(s.time, s.weight, s.weight, s.lift, [s.breath, 0, 0]) : null
+  const piano = pianoAt(studio.figure, extras.piano)
   // in a mouse pause the clip's own trip to its mouse holds it, not his coded scroll
   const byClip = typingClip?.hasVisits && extras.typing.visit ? { ...extras, mouseHold: 0 } : extras
-  const clip = holdMouse(studio.figure, angles, byClip, mixClips ? mixClips(typing, seated) : typing)
+  const clip = holdMouse(studio.figure, angles, byClip, mixClips ? mixClips(typing, seated ?? piano) : typing)
   rig.pose(angles, reach, root, clip)
+  pressKeys(studio, extras.piano, time)
   const at = studio.figure.mouseRig?.prop.at
   if (at) rig.matrices[studio.figure.mouseRig.bone].makeTranslation(at[0], at[1], at[2])
   const { uniforms } = studio.shared
@@ -109,6 +119,47 @@ const poseFigure = (studio, timeline, night, frame, { time, still }) => {
   if (contact) contact.place(root ? carry(axis, { axis, root }) : axis, extras.away)
   return block
 }
+
+// At the synths his own head keeps a little of its say (the nod, looking down at the keys) over the pianist's
+const PIANO_HEAD = 0.6
+const PIANO_SMOOTH = 0.04 // s: the pianist clip softened a touch, like the typing one
+
+/** The pianist clip at the synths (activities: beat), its hands lifted onto Synth A's keys; built on first use. */
+const pianoAt = (figure, piano) => {
+  if (!piano || piano.weight <= 0 || !figure.keysClip) return null
+  figure.piano ??= createSeatedClip(figure.keysClip, manifest.figure.bones, handLift(figure.keysClip, manifest.figure.bones, piano.targets))
+  return figure.piano.pose(piano.time, piano.weight, piano.weight * PIANO_HEAD, 1, [piano.nod, 0, 0])
+}
+
+const tipAt = new Vector3()
+/**
+ * Synth A's keys this frame: each goes down under a fingertip as far as the pianist clip has that finger down
+ * (synthKeys.js), and comes back up when he stops or leaves.
+ */
+const pressKeys = (studio, piano, time) => {
+  const { figure } = studio
+  const { uKeyPress } = studio.shared.uniforms
+  if (!figure.keyPresser || !uKeyPress) return
+  figure.allKeysDown ??= allKeysDown()
+  if (figure.allKeysDown) {
+    uKeyPress.value.forEach((_, k) => (uKeyPress.value[k] = k % 6 === 0 ? 1 : 0))
+    return
+  }
+  // a frozen moment (?at=, a paused window) settles each key where his fingers have it
+  const dt = figure.keyTime === undefined ? 0 : time === figure.keyTime ? 1 : Math.min(0.1, Math.max(0, time - figure.keyTime))
+  figure.keyTime = time
+  const playing = piano?.weight > 0 && figure.strikes
+  const amounts = playing ? figure.strikes.at(piano.time) : NO_STRIKES
+  figure.strikes?.tips.forEach(({ bone, point }, i) => {
+    tipAt.copy(point).applyMatrix4(figure.rig.matrices[bone])
+    figure.tipPositions[i][0] = tipAt.x
+    figure.tipPositions[i][1] = tipAt.y
+    figure.tipPositions[i][2] = tipAt.z
+    figure.tipAmounts[i] = playing ? amounts[i] * piano.weight : 0
+  })
+  uKeyPress.value.set(figure.keyPresser.update(figure.tipPositions ?? [], figure.tipAmounts ?? [], dt))
+}
+const NO_STRIKES = new Float32Array(10)
 
 /** `?clip=`: the clip alone, walking him across the rug (out of the chair: lit live, his seated shadow gone). */
 const poseClipCheck = (studio, motion, name, time) => {
@@ -160,6 +211,16 @@ const useMotion = (figure, bones) => {
             ['typeToSit', 'sitToType'].filter((n) => data.clips[n]).map((n) => [n, createSeatedClip(data.clips[n], bones, figure.typing.lift)]),
           )
           figure.mixClips = createClipMixer()
+        }
+        if (data.clips.keys && figure) {
+          figure.keysClip = smoothClip(data.clips.keys, PIANO_SMOOTH) // the synths
+          if (manifest.figure.synthKeys) {
+            // his fingers press Synth A's keys as the pianist's do
+            figure.strikes = createFingerStrikes(figure.keysClip, bones)
+            figure.keyPresser = createKeyPresser(manifest.figure.synthKeys)
+            figure.tipPositions = figure.strikes.tips.map(() => [0, 0, 0])
+            figure.tipAmounts = new Float32Array(figure.strikes.tips.length)
+          }
         }
         setMotion({ data, perClip })
       })
@@ -222,7 +283,8 @@ export function StudioScene({ onReady, quality, onActivity = null, music = false
   const { scene } = useGLTF(GLB_URL, DRACO_PATH)
   const textures = useTexture(TEXTURE_URLS)
   const [base, deltas = null, plants = null] = textures
-  const lut = HAS_LIGHT ? textures[TEXTURE_URLS.length - 1] : null
+  const lut = HAS_LIGHT ? textures[TEXTURE_URLS.indexOf(LUT_URL)] : null
+  const keyMap = HAS_KEYS ? textures[TEXTURE_URLS.indexOf(KEYS_URL)] : null
   const travel = useRef(0)
   const reducedMotion = useMemo(prefersReducedMotion, [])
   const rest = useMemo(restPose, [])
@@ -257,6 +319,7 @@ export function StudioScene({ onReady, quality, onActivity = null, music = false
         deltas: deltas && preparePlate(deltas, { mipmaps: false }),
         plants: plants && preparePlate(plants),
         lutImage: lut?.image ?? null,
+        keyMap: keyMap && prepareKeyMap(keyMap),
         hazeSteps: quality.hazeSteps,
         pixelRatio: gl.getPixelRatio(),
         seed: session.seed,

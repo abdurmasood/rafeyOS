@@ -68,7 +68,9 @@ describe('motion clips', () => {
 
 describe('how he types: the typing clip on his own hips', async () => {
   const { readFileSync } = await import('node:fs')
-  const { createClipMixer, createSeatedClip, createTypingClip } = await import('@/lib/studio/clips')
+  const { createClipMixer, createFingerStrikes, createSeatedClip, createTypingClip, handLift, smoothClip } = await import('@/lib/studio/clips')
+  const { createKeyPresser, keyUnder } = await import('@/lib/studio/synthKeys')
+  const { ACTIVITY } = await import('@/lib/studio/moods')
   const { createFigurePoser, createMouseProp, mouseReachOf } = await import('@/lib/studio/figurePose')
   const { createFigureRig } = await import('@/components/studio/figureRig')
   const { createTypingTimeline } = await import('@/lib/studio/typing')
@@ -290,6 +292,86 @@ describe('how he types: the typing clip on his own hips', async () => {
     }
     posedAt(rig, 100 + length + 3)
     for (const side of ['L', 'R']) expect(pointOf(rig, `hand_${side}`).distanceTo(new Vector3(...bones[indexOf(`hand_${side}`)].pivot))).toBeLessThan(0.1)
+  })
+
+  it("plays the pianist clip at the synths: his hands on Synth A's keys, moving as the clip's do, joints on", () => {
+    const keysClip = smoothClip(motion.clips.keys, 0.04)
+    const rig = createFigureRig(bones)
+    const [a, b] = manifest.figure.synth.keys.map((p) => new Vector3(...p))
+    const along = b.clone().sub(a)
+    const offLine = (p) => p.distanceTo(a.clone().addScaledVector(along, Math.min(1, Math.max(0, p.clone().sub(a).dot(along) / along.lengthSq()))))
+    let piano = null
+    let previous = null
+    let fastest = 0
+    const reach = { L: [], R: [] }
+    for (let into = 20; into < 40; into += 0.02) {
+      const { angles, reach: goals, root, extras } = poser(timeline.at(5), 5 + into, { activity: ACTIVITY.BEAT, into, left: 120 - into, index: 0 })
+      expect(extras.piano.weight).toBeCloseTo(1, 6)
+      piano ??= createSeatedClip(keysClip, bones, handLift(keysClip, bones, extras.piano.targets))
+      rig.pose(angles, goals, root, piano.pose(extras.piano.time, 1, 0.6, 1, [extras.piano.nod, 0, 0]))
+      const wrists = ['L', 'R'].map((side) => pointOf(rig, `hand_${side}`))
+      wrists.forEach((w, i) => {
+        expect(offLine(w)).toBeLessThan(0.15) // over Synth A's keys
+        reach[i ? 'R' : 'L'].push(w.clone().sub(a).dot(along) / along.length())
+      })
+      if (previous) fastest = Math.max(fastest, ...wrists.map((w, i) => w.distanceTo(previous[i]) / 0.02))
+      previous = wrists
+      for (const name of ['index_L_a', 'index_R_c', 'head', 'spine']) {
+        const i = indexOf(name)
+        const pivot = new Vector3(...bones[i].pivot)
+        expect(pivot.clone().applyMatrix4(rig.matrices[i]).distanceTo(pivot.clone().applyMatrix4(rig.matrices[bones[i].parent]))).toBeLessThan(0.0005)
+      }
+    }
+    expect(fastest).toBeLessThan(1.5) // m/s: a pianist's hand, not a snap
+    for (const side of ['L', 'R']) expect(Math.max(...reach[side]) - Math.min(...reach[side])).toBeGreaterThan(0.03) // it plays along the keys
+    expect(Math.min(...reach.R)).toBeGreaterThan(Math.min(...reach.L)) // right hand higher up the keys
+  })
+
+  it("reads each finger's strikes from the pianist clip: down for the lowest part of its own travel", () => {
+    const strikes = createFingerStrikes(smoothClip(motion.clips.keys, 0.04), bones)
+    expect(strikes.tips.map((t) => t.name)).toContain('thumb_R')
+    expect(strikes.tips).toHaveLength(10)
+    const down = strikes.tips.map(() => 0)
+    let frames = 0
+    for (let t = 0; t < motion.clips.keys.duration; t += 1 / 30, frames++) {
+      strikes.at(t).forEach((amount, i) => {
+        expect(amount).toBeGreaterThanOrEqual(0)
+        expect(amount).toBeLessThanOrEqual(1)
+        if (amount > 0) down[i]++
+      })
+    }
+    for (const count of down) {
+      expect(count / frames).toBeGreaterThan(0.1) // each finger plays...
+      expect(count / frames).toBeLessThan(0.36) // ...and is up most of the time
+    }
+  })
+
+  it("presses Synth A's keys under his fingertips as he plays: a handful at a time, many over a loop", () => {
+    const keysClip = smoothClip(motion.clips.keys, 0.04)
+    const strikes = createFingerStrikes(keysClip, bones)
+    const presser = createKeyPresser(manifest.figure.synthKeys)
+    const rig = createFigureRig(bones)
+    const played = new Set()
+    let most = 0
+    let piano = null
+    for (let into = 20; into < 30; into += 1 / 60) {
+      const { angles, reach, root, extras } = poser(timeline.at(5), 5 + into, { activity: ACTIVITY.BEAT, into, left: 120 - into, index: 0 })
+      piano ??= createSeatedClip(keysClip, bones, handLift(keysClip, bones, extras.piano.targets))
+      rig.pose(angles, reach, root, piano.pose(extras.piano.time, 1, 0.6, 1, [extras.piano.nod, 0, 0]))
+      const tips = strikes.tips.map(({ bone, point }) => point.clone().applyMatrix4(rig.matrices[bone]).toArray())
+      const amounts = strikes.at(extras.piano.time)
+      const press = presser.update(tips, amounts, 1 / 60)
+      const down = [...press].map((p, k) => (p > 0.5 ? k : -1)).filter((k) => k >= 0)
+      down.forEach((k) => played.add(k))
+      most = Math.max(most, down.length)
+      // a key goes down only under a fingertip that's down
+      tips.forEach((tip, i) => {
+        const k = keyUnder(presser.frames, tip)
+        if (amounts[i] >= 1 && k >= 0) expect(press[k]).toBeGreaterThan(0.3)
+      })
+    }
+    expect(played.size).toBeGreaterThan(6) // over the 10 s loop he plays across the keys
+    expect(most).toBeLessThanOrEqual(10) // never more keys down than fingers
   })
 
   it('never falls into the clip’s own 16 s loop: no rhythm in his head over two minutes', () => {
