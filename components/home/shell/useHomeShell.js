@@ -88,9 +88,6 @@ const runEffects = (effects, handlers) =>
         case HOME_EFFECTS.PROJECTS_3D:
           handlers.projects3d()
           return outcome
-        case HOME_EFFECTS.STUDIO:
-          handlers.studio()
-          return outcome
         case HOME_EFFECTS.HANDOFF:
           handlers.handoff(effect)
           return outcome

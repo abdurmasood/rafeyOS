@@ -7,8 +7,6 @@ import { useTerminal } from './TerminalProvider';
 import LoadingBar from './LoadingBar';
 import { loadProjects } from '@/lib/loadProjects';
 import { loadRafeyOS } from '@/lib/loadRafeyOS';
-import { loadStudio } from '@/lib/loadStudio';
-import { STUDIO_HREF } from '@/lib/studio/route';
 import { forgetDesktop, rememberHandoff } from '@/components/rafeyos/session/logic/sessionStore';
 import { sessionStorageOrNull } from '@/lib/browserStorage';
 import { HomeLine } from '@/components/home/HomeLine';
@@ -25,8 +23,6 @@ import { useCursor } from '@/components/rafeyos/apps/terminal/logic/useCursor';
 const RAFEYOS_ROUTE_DELAY_MS = 450;
 // The LoadingBar's run before the 3D projects page
 const PROJECTS_3D_DELAY_MS = 5500;
-// The same LoadingBar run before the studio; the scene and its plates download meanwhile
-const STUDIO_DELAY_MS = PROJECTS_3D_DELAY_MS;
 // Offered as ghost text until the visitor runs their first command
 const STARTER_SUGGESTION = 'help';
 const COMPLETIONS = completionCommands(HOME_COMMANDS);
@@ -45,11 +41,7 @@ const ghostFor = ({ started, input, caretIndex }) => (
 const usePageHandlers = (setShowLoadingBar) => {
   const router = useRouter();
   const rafeyosTimeoutRef = useRef(null);
-  const studioTimeoutRef = useRef(null);
-  useEffect(() => () => {
-    clearTimeout(rafeyosTimeoutRef.current);
-    clearTimeout(studioTimeoutRef.current);
-  }, []);
+  useEffect(() => () => clearTimeout(rafeyosTimeoutRef.current), []);
 
   return {
     newTab: (href) => window.open(href, '_blank'),
@@ -62,14 +54,6 @@ const usePageHandlers = (setShowLoadingBar) => {
       setTimeout(() => {
         router.push('/projects');
       }, PROJECTS_3D_DELAY_MS);
-    },
-    studio: () => {
-      setShowLoadingBar(true);
-      loadStudio();
-      clearTimeout(studioTimeoutRef.current);
-      studioTimeoutRef.current = setTimeout(() => {
-        router.push(STUDIO_HREF);
-      }, STUDIO_DELAY_MS);
     },
     // Clearing the session flag makes the command always boot; only a refresh inside rafeyOS skips it.
     // The window to open is kept only as the route starts, so an unmount that cancels it leaves nothing behind.
