@@ -181,6 +181,7 @@
 /* projects */
 /* The /projects page's 3D scene (Tailwind-styled; base.css keeps its resets off it) */
 :where(.rafeyos) .p3d { flex: 1; min-height: 0; position: relative; background: #000; }
+:where(.rafeyos) .studio-app { flex: 1; min-height: 0; position: relative; background: #000; }
 
 /* minecraft */
 /* A game window: the world fills it and the HUD floats over it in the dock's glass. HUD text stays white in both

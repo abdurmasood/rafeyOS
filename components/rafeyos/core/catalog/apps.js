@@ -78,6 +78,7 @@ export const APPS = Object.freeze({
   [APP.SETTINGS]: app({ id: APP.SETTINGS, name: 'Settings', size: [780, 540], minSize: [600, 420] }),
   [APP.PROPERTIES]: app({ id: APP.PROPERTIES, name: 'Properties', size: [340, 430], minSize: [340, 380], inDock: false }),
   [APP.MINECRAFT]: app({ id: APP.MINECRAFT, name: 'Minecraft', size: [960, 640], minSize: [640, 480] }),
+  [APP.STUDIO]: app({ id: APP.STUDIO, name: 'Studio', size: [1100, 720], minSize: [560, 400] }),
 })
 
 export const APP_IDS = Object.freeze(Object.keys(APPS))
@@ -94,6 +95,7 @@ export const getApp = (id) => {
 /** @type {readonly AppId[]} */
 export const IMPLEMENTED_APPS = Object.freeze([
   APP.FILES, APP.TERMINAL, APP.EDITOR, APP.MUSIC, APP.MAIL, APP.PROJECTS, APP.SETTINGS, APP.PROPERTIES, APP.MINECRAFT,
+  APP.STUDIO,
 ])
 
 /** @param {AppId} appId */

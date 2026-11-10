@@ -3,7 +3,7 @@ import { APPS, APP_IDS, DOCK_FAVORITES, getApp } from '@/components/rafeyos/core
 
 describe('app registry', () => {
   it('lists every app id', () => {
-    expect(APP_IDS).toEqual(['files', 'terminal', 'editor', 'music', 'mail', 'projects', 'settings', 'properties', 'minecraft'])
+    expect(APP_IDS).toEqual(['files', 'terminal', 'editor', 'music', 'mail', 'projects', 'settings', 'properties', 'minecraft', 'studio'])
   })
 
   it('carries the mockup sizes and flags', () => {
