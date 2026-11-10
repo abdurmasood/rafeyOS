@@ -11,7 +11,7 @@ describe('app availability', () => {
     expect(isImplemented('properties')).toBe(true)
     expect(isImplemented('music')).toBe(true)
     expect(isImplemented('settings')).toBe(true)
-    expect(isImplemented('projects')).toBe(true)
+    expect(isImplemented('minecraft')).toBe(true)
     expect(isImplemented('nope')).toBe(false)
   })
 
@@ -38,7 +38,7 @@ describe('app availability', () => {
   })
 
   it('names the missing app in the note', () => {
-    expect(unavailableNote('projects')).toBe("Projects isn't available yet")
+    expect(unavailableNote('minecraft')).toBe("Minecraft isn't available yet")
     expect(unavailableNote(null)).toBe("Opening links isn't available yet")
     expect(unavailableNote('nope')).toBe("nope isn't available yet")
   })

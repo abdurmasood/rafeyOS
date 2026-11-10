@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { BOUNCE_MS } from '@/components/rafeyos/shell/chrome/Dock'
 import { clickDock, dock, renderDesktop } from '@/tests/rafeyos/helpers/renderRafeyOS'
 
-const APPS = ['Files', 'Terminal', 'Text Editor', 'Music', 'Mail', 'Projects', 'Settings']
+const APPS = ['Files', 'Terminal', 'Text Editor', 'Music', 'Mail', 'Minecraft', 'Settings']
 // 40px icons sit in 46px buttons; the hovered one grows ×1.72, its neighbours ×1.46, the next ×1.22
 const REST = 46
 
