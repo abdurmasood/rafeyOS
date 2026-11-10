@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { clickDock, dock, headerTitle, renderDesktop, settle, windowsOf } from '@/tests/rafeyos/helpers/renderRafeyOS'
 
-// The real room needs WebGL. This stand-in shows what the window hands it.
+// The real room needs WebGL. This stand-in shows what the window hands it, and lets a test say what he's doing.
+const room = vi.hoisted(() => ({ onActivity: null }))
 vi.mock('@/lib/loadStudio', () => ({
   loadStudio: async () =>
-    function FakeRoom({ paused }) {
-      return <div data-testid="studio-room" data-paused={String(paused)} />
+    function FakeRoom({ paused, onActivity, music, minecraft }) {
+      room.onActivity = onActivity
+      return <div data-testid="studio-room" data-paused={String(paused)} data-music={String(music)} data-minecraft={String(minecraft)} />
     },
 }))
+vi.mock('@/lib/loadMinecraft', () => ({ loadMinecraft: async () => ({ default: () => null }) }))
 
 afterEach(() => {
   cleanup()
@@ -17,6 +20,7 @@ afterEach(() => {
 })
 
 const roomIn = (win) => within(win).getByTestId('studio-room')
+const subtitleOf = (win) => win.querySelector('.hb .ttl small')?.textContent ?? null
 
 const openFromAppGrid = async () => {
   const view = renderDesktop()
@@ -50,6 +54,25 @@ describe('Studio app', () => {
     expect(roomIn(win).dataset.paused).toBe('true')
     clickDock('Rafey')
     expect(roomIn(win).dataset.paused).toBe('false')
+  })
+
+  it('says in the title bar what he is doing, once the room tells it', async () => {
+    const { win } = await openFromAppGrid()
+    expect(subtitleOf(win)).toBeNull() // nothing until the room has loaded
+    act(() => room.onActivity('code'))
+    expect(subtitleOf(win)).toBe('Coding')
+    act(() => room.onActivity('beat'))
+    expect(subtitleOf(win)).toBe('Making a beat')
+    expect(headerTitle(win)).toBe('Rafey')
+  })
+
+  it('tells the room when a Minecraft window is open, so he plays too', async () => {
+    const { win } = await openFromAppGrid()
+    expect(roomIn(win).dataset.minecraft).toBe('false')
+    expect(roomIn(win).dataset.music).toBe('false')
+    fireEvent.click(within(dock()).getByRole('button', { name: 'Minecraft' }))
+    await settle()
+    expect(roomIn(win).dataset.minecraft).toBe('true')
   })
 
   it('opens straight away from a link to /os?app=studio', async () => {

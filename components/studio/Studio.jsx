@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { PerformanceMonitor } from '@react-three/drei'
 import { ROOM_VIEW, canvasBox, dprFor } from '@/lib/studio/camera'
@@ -64,7 +64,7 @@ const useSettled = (ready) => {
   return settled
 }
 
-function StudioCanvas({ space, paused }) {
+function StudioCanvas({ space, paused, onActivity, music, minecraft }) {
   const [ready, setReady] = useState(false)
   const onReady = useCallback(() => setReady(true), [])
   const settled = useSettled(ready)
@@ -79,7 +79,7 @@ function StudioCanvas({ space, paused }) {
       <Canvas flat linear dpr={dpr} gl={GL_OPTIONS} frameloop={paused ? 'never' : 'always'}>
         <StudioCamera />
         <Suspense fallback={null}>
-          <StudioScene onReady={onReady} quality={quality} />
+          <StudioScene onReady={onReady} quality={quality} onActivity={onActivity} music={music} minecraft={minecraft} />
         </Suspense>
         {settled && <PerformanceMonitor flipflops={3} onDecline={onDecline} onIncline={onIncline} onFallback={onFallback} />}
       </Canvas>
@@ -87,12 +87,20 @@ function StudioCanvas({ space, paused }) {
   )
 }
 
-/** The night room, live, filling the box it's given (the "Rafey" app's window). `paused` stops drawing, e.g. while minimized. */
-export function Studio({ paused = false }) {
+/**
+ * The night room, live, filling the box it's given (the "Rafey" app's window). `paused` stops drawing, e.g.
+ * while minimized. onActivity(activity) hears what he's doing; music / minecraft nudge him (moods.js).
+ * Memoised: the desktop re-renders every second while music plays, and the room needn't.
+ * @type {import('react').NamedExoticComponent<{ paused?: boolean, onActivity?: ((activity: string) => void) | null,
+ *   music?: boolean, minecraft?: boolean }>}
+ */
+export const Studio = memo(function Studio({ paused = false, onActivity = null, music = false, minecraft = false }) {
   const [support] = useState(() => detectStudioSupport())
   const boxRef = useRef(null)
   const space = useBoxSize(boxRef)
-  const room = space.width > 0 && space.height > 0 && <StudioCanvas space={space} paused={paused} />
+  const room = space.width > 0 && space.height > 0 && (
+    <StudioCanvas space={space} paused={paused} onActivity={onActivity} music={music} minecraft={minecraft} />
+  )
   return (
     <div
       ref={boxRef}
@@ -107,4 +115,4 @@ export function Studio({ paused = false }) {
       )}
     </div>
   )
-}
+})
