@@ -195,11 +195,12 @@ const createChunks = (scene, world, materials, chunkArrays) => {
 }
 
 /** Breaking and placing at whatever the crosshair points at. */
-const createEditor = ({ world, player, chunks, getTarget, getSelected, onEdit }) => {
+const createEditor = ({ world, player, chunks, life, getTarget, getSelected, onEdit }) => {
   const change = (x, y, z, block) => {
     const edit = world.set(x, y, z, block)
     if (!edit) return
     chunksTouching(x, z).forEach(([cx, cz]) => chunks.rebuild(cx, cz))
+    life.blockChanged(x, z)
     onEdit(edit)
   }
   return {
@@ -347,11 +348,12 @@ const createWash = (host, doc) => {
  *   director?: { frame: (view: { dt: number, eye: { x: number, y: number, z: number }, yaw: number, pitch: number }) =>
  *     null | { camera?: { x: number, y: number, z: number, yaw: number, pitch: number }, fogLift?: number },
  *     toPlayer: (onArrive: () => void) => void, toOrbit: () => void },
- *   startTime?: number,
+ *   startTime?: number, reducedMotion?: boolean,
  * }} options - `island` and `chunkArrays` come from the world loader (worldLoader.js), the chunks meshed with the
  *   same `edits`. The voxels are copied into a world of the engine's own: physics, aiming and edits read them here.
  *   `chunkArrays` is consumed: the engine empties the map once its first meshes are built, so don't reuse it.
  *   `startTime`: the time of day to start at, a fraction from midnight (skyClock.js); 08:00 when left out.
+ *   `reducedMotion`: the world's own motion (wind, water, clouds, fireflies, the walking bob) holds still.
  * @returns {{ setActive: (active: boolean) => void, setPaused: (paused: boolean) => void, capture: () => void, play: (onArrive: () => void) => void, toTitle: () => void, respawn: () => void, dispose: () => void }}
  * @throws {WebGLUnavailableError} when the browser can't make a WebGL context; anything else thrown while building
  *   comes after the canvas and renderer went again, so nothing is left behind
@@ -381,7 +383,7 @@ export const createMinecraftEngine = (options) => {
 const assembleEngine = ({
   host, island, chunkArrays, edits = [], onHud = () => {}, onEdit = () => {}, canvas, renderer,
   requestFrame = (run) => requestAnimationFrame(run), cancelFrame = (id) => cancelAnimationFrame(id),
-  now = () => performance.now(), doc, win, director = IDLE_DIRECTOR, startTime,
+  now = () => performance.now(), doc, win, director = IDLE_DIRECTOR, startTime, reducedMotion = false,
 }, releases, release) => {
   const world = createWorld(island, edits)
   const player = liftClear(createPlayer(island.spawn), world)
@@ -390,12 +392,12 @@ const assembleEngine = ({
   releases.push(view.dispose, wash.remove)
   const chunks = createChunks(view.scene, world, view.materials, chunkArrays)
   releases.push(chunks.dispose)
-  const life = createLife({ view, startTime })
+  const life = createLife({ view, world, startTime, reducedMotion })
   releases.push(life.dispose)
   const shotFog = { clear: FOG, setAt: (eye) => setAtmosphereAt(view, world, eye) }
   const hud = createHud(onHud, player)
   let target = null
-  const editor = createEditor({ world, player, chunks, getTarget: () => target, getSelected: hud.selected, onEdit })
+  const editor = createEditor({ world, player, chunks, life, getTarget: () => target, getSelected: hud.selected, onEdit })
   const vitals = createVitals()
   const death = { respawning: false }
   const input = createMinecraftInput({ canvas, doc, win, now, on: {
@@ -438,11 +440,12 @@ const assembleEngine = ({
     const events = stepVitals(vitals, sampleVitals(player, world, input.isPlaying()), dt)
     if (events.some((event) => event.type === 'dead')) die()
     hud.vitals(vitals)
-    life.beforeView(dt)
+    life.beforeView(dt, player)
     input.tick(time)
     target = updateView(view, world, player)
     const shot = director.frame({ dt, eye: eyePosition(player), yaw: player.yaw, pitch: player.pitch })
     if (shot) applyShot(view, shot, shotFog)
+    life.afterView(dt, { shot, player, playing: input.isPlaying() })
     drawFrame({ renderer, view, chunks, wash })
     hud.track(time)
   } })

@@ -51,7 +51,7 @@ const startWorld = ({ host, store, reducedMotion, on }) => {
       // One per start: StrictMode's discarded first mount must not share an orbit clock with the real one
       const director = createStartDirector({ reducedMotion })
       engine = createMinecraftEngine({
-        host, island, chunkArrays, edits: queue.edits(), onHud: on.hud, onEdit: queue.record, director,
+        host, island, chunkArrays, edits: queue.edits(), onHud: on.hud, onEdit: queue.record, director, reducedMotion,
       })
     } catch (error) {
       console.error('Minecraft engine failed to start', error)
