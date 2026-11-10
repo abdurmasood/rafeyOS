@@ -121,7 +121,7 @@ def bone_weights(point: Vector, chain: list[int], skeleton: list[Vector], blend:
     return chain[k], chain[k + 1], smoothstep(-blend, blend, along - joints[k])
 
 
-FIGURE_MESHES = {"figure": "figure_rafey", "backrest": "figure_backrest"}  # one per colour layer
+FIGURE_MESHES = {"figure": "figure_rafey", "backrest": "figure_backrest", "door": "figure_door"}  # one per colour layer
 # For live lighting (studio_probes.py): each vertex's rest normal and diffuse colour, as scalar attributes
 FIGURE_SURFACE = ("_nx", "_ny", "_nz", "_ar", "_ag", "_ab")
 FALLBACK_ALBEDO = (0.18, 0.18, 0.18)
@@ -253,7 +253,8 @@ def build_figure(scene: bpy.types.Scene, coll: bpy.types.Collection) -> None:
     used: set[int] = set()
     for layer, name in FIGURE_MESHES.items():
         parts = {k: v for k, v in rig["parts"].items() if v["layer"] == layer}
-        used |= build_figure_mesh(name, parts, index, coll)
+        if parts:  # a room with a window has no door layer
+            used |= build_figure_mesh(name, parts, index, coll)
     print(f"[export] figure bones in use: {len(used)} of {len(index)}")
 
 
@@ -295,6 +296,17 @@ def figure_facts(scene: bpy.types.Scene) -> dict | None:
             if rig.get("guitar")
             else {}
         ),
+        # the door that replaced the window: its hinge (the bone's pivot; it opens turning about +y), the leaf's size,
+        # how far it opens (degrees), its room-side handle, the doorway and the hall behind it (three.js boxes)
+        **({"door": door_facts(rig["door"])} if rig.get("door") else {}),
+        # his mug on its coaster: the cup's bottom centre (the bone's pivot), its rim height and its handle
+        **(
+            {"mug": {"rest": sc.to_three_point(rig["mug"]["rest"]), "top": round(rig["mug"]["top"], 4), "handle": sc.to_three_point(rig["mug"]["handle"])}}
+            if rig.get("mug")
+            else {}
+        ),
+        # Synth A's keys, low to high (studio_keys.py): their top's back and front middles, half widths and groups
+        "synthKeys": synth_keys(),
         # his skull (three.js centre; half-sizes across, front to back, up) and the headphones' linear colour
         **(
             {
@@ -307,6 +319,32 @@ def figure_facts(scene: bpy.types.Scene) -> dict | None:
             if rig.get("headphones")
             else {}
         ),
+    }
+
+
+def synth_keys() -> list[dict]:
+    import studio_keys
+
+    return studio_keys.facts()
+
+
+def three_box(low, high) -> list[list[float]]:
+    """A Blender-axes box as its three.js min and max corners."""
+    a, b = sc.to_three_point(low), sc.to_three_point(high)
+    return [[min(a[i], b[i]) for i in range(3)], [max(a[i], b[i]) for i in range(3)]]
+
+
+def door_facts(door: dict) -> dict:
+    (x0, x1), (y0, y1), (z0, z1) = door["opening"]["x"], door["opening"]["y"], door["opening"]["z"]
+    return {
+        "hinge": sc.to_three_point(door["hinge"]),
+        "width": round(door["width"], 4),
+        "height": round(door["height"], 4),
+        "thickness": door["thickness"],
+        "open": door["open"],
+        "handle": sc.to_three_point(door["handle"]),
+        "doorway": three_box((min(x0, x1), y0, z0), (max(x0, x1), y1, z1)),
+        "hall": three_box(door["hall"]["low"], door["hall"]["high"]),
     }
 
 
@@ -340,11 +378,22 @@ def live_copy(source: bpy.types.Object, coll: bpy.types.Collection, role: str) -
     return ob
 
 
+def opening_facts(window_corners: list[Vector] | None) -> dict:
+    """The window's hole (from its cutter) or, with the door, the doorway (studio_door.py)."""
+    if window_corners is not None:
+        ys, zs = [c.y for c in window_corners], [c.z for c in window_corners]
+    else:
+        door = json.loads(bpy.context.scene[sc.DOOR_FACTS])["opening"]
+        ys, zs = door["y"], door["z"]
+    return {"facesX": [-2.0, -2.15], "y": [round(min(zs), 4), round(max(zs), 4)], "z": [round(-max(ys), 4), round(-min(ys), 4)]}
+
+
 def scene_facts(scene: bpy.types.Scene) -> dict:
     """Positions and light setups the web scene needs, in three.js Y-up coordinates."""
     ref = sc.obj(sc.REF_CAMERA)
     moon, up = sc.obj(sc.MOONLIGHT), sc.obj(sc.UPLIGHT)
-    cutter = sc.obj("Window_Cutter")
+    window = sc.OPENING == sc.OPENING_WINDOW
+    cutter = sc.obj(sc.WINDOW_CUTTER)
     corners = [cutter.matrix_world @ Vector(c) for c in cutter.bound_box]
     frame = [sc.obj(sc.WINDOW_FRAME).matrix_world @ Vector(c) for c in sc.obj(sc.WINDOW_FRAME).bound_box]
     walls = [sc.obj("Walls").matrix_world @ Vector(c) for c in sc.obj("Walls").bound_box]
@@ -374,16 +423,12 @@ def scene_facts(scene: bpy.types.Scene) -> dict:
         },
         "quality": sc.QUALITY,
         "plate": {"width": sc.OVERSCAN_WIDTH, "height": sc.OVERSCAN_HEIGHT, "crop": list(sc.REF_CROP)},
-        "moon": spot(moon),
+        # moonlight comes in only through a window: with the door in its place there's none
+        **({"moon": spot(moon), "aperture": [sc.to_three_point(p) for p in aperture_blender]} if window else {}),
         "uplight": spot(up),
         "candle": {"position": sc.to_three_point(sc.obj(sc.CANDLE_LIGHT).matrix_world.translation)},
-        "aperture": [sc.to_three_point(p) for p in aperture_blender],
-        # The window opening in three.js coords: both wall faces (x) and the hole's y/z extent
-        "opening": {
-            "facesX": [-2.0, -2.15],
-            "y": [round(min(c.z for c in corners), 4), round(max(c.z for c in corners), 4)],
-            "z": [round(-max(c.y for c in corners), 4), round(-min(c.y for c in corners), 4)],
-        },
+        # The opening in the west wall, window or doorway, in three.js coords: both wall faces (x), its y/z extent
+        "opening": opening_facts(corners if window else None),
         "room": [
             sc.to_three_point((min(c.x for c in walls), min(c.y for c in walls), min(c.z for c in walls))),
             sc.to_three_point((max(c.x for c in walls), max(c.y for c in walls), max(c.z for c in walls))),

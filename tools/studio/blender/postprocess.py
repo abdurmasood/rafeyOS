@@ -37,10 +37,18 @@ DELTAS = {
     "body": ("body_gone", "base"),  # him up out of the chair: his shadows lift, the chair's stay
     "guitar": ("guitar_gone", "base"),  # the guitar off its hook: its shadow leaves the wall
     "screen": ("screen_off", "base"),  # the monitor asleep: its glow leaves the desk
+    "hall": ("door_open", "base"),  # the door open: the hall's warm light comes in
+    "tv": ("door_open", "door_open_tv_off"),  # the TV down the hall, through the open door: the page flickers it
+    "mug": ("mug_gone", "base"),  # his mug off its coaster: its shadow and reflection go
+    # Synth A's keys held down (studio_keys.py), at full resolution: each key is only a few pixels wide
+    "keysA": ("keys_a", "base"),
+    "keysB": ("keys_b", "base"),
+    "keysBlack": ("keys_black", "base"),
 }
+KEY_DELTAS = ("keysA", "keysB", "keysBlack")
 # Soft, rarely-seen changes packed at a fraction of the plate's resolution, so the final atlas fits the
 # 7200 px texture the page requires (the page samples by rect, so resolution doesn't matter to it)
-DELTA_DOWNSCALE = {"figure": 2, "body": 2, "guitar": 2, "screen": 2}
+DELTA_DOWNSCALE = {"figure": 2, "body": 2, "guitar": 2, "screen": 2, "hall": 2, "tv": 2}
 # A light's footprint: where its blurred contribution clears the render-noise floor
 FOOTPRINT_BLUR = 6
 FOOTPRINT_LOW = 1.5 / 255.0
@@ -171,11 +179,13 @@ def pack_atlas(crops: dict[str, np.ndarray], channels: int) -> tuple[np.ndarray,
     return atlas, rects
 
 
-def build_deltas(renders: dict[str, np.ndarray], plate_wh: tuple[int, int]) -> tuple[np.ndarray | None, dict]:
+def build_deltas(renders: dict[str, np.ndarray], plate_wh: tuple[int, int], within: dict | None = None) -> tuple[np.ndarray | None, dict]:
     """Signed light layers: positive and negative parts are packed separately at full precision.
 
     AgX is nonlinear, so adding a light can lower a channel in display space; dropping those
-    negatives would make a full shadow miss the light-off render.
+    negatives would make a full shadow miss the light-off render. `within` limits a delta to a pixel box
+    (x0, y0, x1, y1): the pressed keys only change the keys (the page uses them nowhere else), but moving
+    geometry reshuffles the render noise around them.
     """
     crops, meta = {}, {}
     for name, (with_light, without) in DELTAS.items():
@@ -188,6 +198,9 @@ def build_deltas(renders: dict[str, np.ndarray], plate_wh: tuple[int, int]) -> t
         if box is None:
             print(f"[post] delta {name} is empty")
             continue
+        if within and name in within:
+            lx0, ly0, lx1, ly1 = within[name]
+            box = (max(box[0], lx0), max(box[1], ly0), min(box[2], lx1), min(box[3], ly1))
         x0, y0, x1, y1 = box
         window = (slice(y0, y1), slice(x0, x1))
         layer = {"rect": uv_rect(x0, y0, x1, y1, *plate_wh)}
@@ -262,9 +275,9 @@ def build_plants(renders: dict[str, np.ndarray], groups: dict[str, list[str]], p
 CUBE_FROM_BLENDER = (0, 1, 4, 5, 3, 2)  # baked faces +X -X +Y -Y +Z -Z (Blender) -> +x -x +y -y +z -z (three.js)
 
 
-def build_probes(renders_dir: str) -> dict | None:
+def build_probes(renders_dir: str, name: str = "probes.json") -> dict | None:
     """Six colours per probe (three.js axis order), on a regular grid in three.js axes, x fastest."""
-    path = os.path.join(renders_dir, "probes.json")
+    path = os.path.join(renders_dir, name)
     if not os.path.exists(path):
         return None
     info = json.load(open(path))
@@ -283,7 +296,7 @@ def build_probes(renders_dir: str) -> dict | None:
     ys = sorted({p[1] for p in points})
     lifts = [round(zs[i + 1] - zs[i], 4) for i in range(len(zs) - 1)]
     lit = cubes[[k for k, v in zip(order, valid) if v]]
-    print(f"[post] probes: {sum(valid)} valid of {len(valid)}, grid {nx}x{nz}x{ny}; light per face median {np.round(np.median(lit, axis=(0, 1)), 4)}")
+    print(f"[post] {name}: {sum(valid)} valid of {len(valid)}, grid {nx}x{nz}x{ny}; light per face median {np.round(np.median(lit, axis=(0, 1)), 4)}")
     return {
         "origin": [xs[0], zs[0], -ys[-1]],
         "step": [step, lifts[0] if lifts else 1.0, step],
@@ -313,6 +326,36 @@ def build_lut(renders_dir: str, public: str) -> dict | None:
     return {"size": meta["size"], "stops": meta["stops"]}
 
 
+def build_key_map(renders_dir: str, public: str, plate_wh: tuple[int, int]) -> dict | None:
+    """keys.webp: which of Synth A's keys each pixel shows (red: key number + 1, green: its pressed group), lossless
+    and undithered so the page reads exact numbers; cropped to the keys, with where the crop sits on the plate."""
+    path = os.path.join(renders_dir, "keys_id.exr")
+    if not os.path.exists(path):
+        return None
+    ids = load(path)
+    number = np.rint(ids[..., 0] * 255.0).astype(np.int32)
+    group = np.rint(ids[..., 1] * 255.0).astype(np.int32)
+    box = bbox(number > 0, 2)
+    if box is None:
+        return None
+    x0, y0, x1, y1 = box
+    u8 = np.zeros((y1 - y0, x1 - x0, 3), dtype=np.uint8)
+    u8[..., 0] = np.clip(number[y0:y1, x0:x1], 0, 255)
+    u8[..., 1] = np.clip(group[y0:y1, x0:x1], 0, 255)
+    out = os.path.join(public, "keys.webp")
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        spec = oiio.ImageSpec(u8.shape[1], u8.shape[0], 3, oiio.UINT8)
+        image = oiio.ImageOutput.create(tmp.name)
+        image.open(tmp.name, spec)
+        image.write_image(u8)
+        image.close()
+        subprocess.run([CWEBP, "-lossless", "-exact", "-m", "6", "-quiet", tmp.name, "-o", out], check=True)
+    os.unlink(tmp.name)
+    count = int(number.max())
+    print(f"[post] keys.webp {x1 - x0}x{y1 - y0}: {count} keys")
+    return {"file": "keys.webp", "rect": uv_rect(x0, y0, x1, y1, *plate_wh), "count": count, "box": [x0, y0, x1, y1]}
+
+
 def background_colour(base: np.ndarray) -> list[float]:
     edge = np.concatenate([base[:8].reshape(-1, base.shape[2]), base[-8:].reshape(-1, base.shape[2])])
     return [round(float(v), 5) for v in edge[:, :3].mean(axis=0)]
@@ -328,7 +371,7 @@ def main() -> None:
     p.add_argument("--manifest", default=MANIFEST_PATH)
     args = p.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
 
-    layers = {f"{kind}_{key}" for kind in ("plants", "matte") for key in "abcdefg"}
+    layers = {f"{kind}_{key}" for kind in ("plants", "matte") for key in "abcdefgh"}
     names = {name for pair in DELTAS.values() for name in pair} | layers
     renders = {}
     for name in names | {args.base_name}:
@@ -343,7 +386,10 @@ def main() -> None:
     SCALE = plate_wh[0] / BASE_PLATE_WIDTH
 
     write_webp(base[..., :3], os.path.join(args.public, "base.webp"), quality=95)
-    deltas, delta_meta = build_deltas(renders, plate_wh)
+    keys = build_key_map(args.renders, args.public, plate_wh)
+    key_box = keys.pop("box") if keys else None
+    within = {name: key_box for name in KEY_DELTAS} if key_box else None
+    deltas, delta_meta = build_deltas(renders, plate_wh, within)
     if deltas is not None:
         write_webp(deltas, os.path.join(args.public, "deltas.webp"), quality=92)
     groups_path = args.groups or os.path.join(args.renders, "plant_groups.json")
@@ -362,10 +408,15 @@ def main() -> None:
             "plantLayers": plant_meta,
         }
     )
+    if keys:
+        manifest["keys"] = keys
     probes = build_probes(args.renders)
     lut = build_lut(args.renders, args.public)
     if probes and lut:
         manifest["light"] = {"probes": probes, "lut": lut}
+        opened = build_probes(args.renders, "probes_open.json")  # the same grid with the door open (studio_door.py)
+        if opened:
+            manifest["light"]["probesOpen"] = opened
     os.makedirs(os.path.dirname(args.manifest), exist_ok=True)
     with open(args.manifest, "w") as f:
         json.dump(manifest, f, indent=2)

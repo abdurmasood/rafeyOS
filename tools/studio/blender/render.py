@@ -29,13 +29,15 @@ MATTE_SPP = 32
 # e for the chair's see-through backrest, and f / g for the chair and its backrest with him out of it
 # (the empty chair, when he gets up). Each gets its own pair because on screen it overlaps things
 # in the other groups, and one layer can't hold overlaps. The backrest's colour is taken as seen, him
-# showing through it (postprocess.COMPOSITE_LAYERS), so plants_e shows group d too.
-GROUP_KEYS = "abcdefg"
+# showing through it (postprocess.COMPOSITE_LAYERS), so plants_e shows group d too. h is the door's leaf
+# (studio_door.py), which the page swings.
+GROUP_KEYS = "abcdefgh"
 TREE_GROUP = 2
 FIGURE_GROUP = 3
 BACKREST_GROUP = 4
 CHAIR_GROUP = 5
 EMPTY_BACKREST_GROUP = 6
+DOOR_GROUP = 7
 
 BASE: dict[str, Any] = {
     "camera": "overscan",
@@ -71,12 +73,24 @@ VARIANTS: dict[str, dict[str, Any]] = {
     "matte_f": {**BASE, "plant_group": CHAIR_GROUP, "matte": True, "hide_him": True},
     "plants_g": {**BASE, "plant_group": EMPTY_BACKREST_GROUP, "also_visible": CHAIR_GROUP, "hide_him": True},
     "matte_g": {**BASE, "plant_group": EMPTY_BACKREST_GROUP, "matte": True, "hide_him": True},
+    "plants_h": {**BASE, "plant_group": DOOR_GROUP},
+    "matte_h": {**BASE, "plant_group": DOOR_GROUP, "matte": True},
     # The room with him and his chair gone (rolled away), with only him gone (up out of the chair), with the
     # guitar off its hook, and with the monitor asleep: the page fades to these
     "figure_gone": {**BASE, "figure_gone": True},
     "body_gone": {**BASE, "hide_him": True},
     "guitar_gone": {**BASE, "guitar_gone": True},
     "screen_off": {**BASE, "screen_off": True},
+    # The door swung open (the hall's warm light comes in), and his mug gone from its coaster (he took it for tea)
+    "door_open": {**BASE, "door_open": True},
+    "door_open_tv_off": {**BASE, "door_open": True, "energy": {sc.TV_LIGHT: 0.0}},  # the TV's share, to flicker
+    "mug_gone": {**BASE, "mug_gone": True},
+    # Synth A's keys held down, every other white key or every black key, and which key each pixel shows
+    # (studio_keys.py): the page presses each key as his fingers do
+    "keys_a": {**BASE, "keys_down": 0},
+    "keys_b": {**BASE, "keys_down": 1},
+    "keys_black": {**BASE, "keys_down": 2},
+    "keys_id": {"camera": "overscan", "keys_id": True},
 }
 
 
@@ -127,11 +141,20 @@ def layer_groups(scene: bpy.types.Scene) -> list[list[str]]:
         sc.live_figure_parts("backrest"),
         sc.live_figure_parts("figure", role=sc.ROLE_CHAIR),
         sc.live_figure_parts("backrest", role=sc.ROLE_CHAIR),
+        sc.live_figure_parts("door"),
     ]
 
 
 def hidden_from_every_ray(names: list[str]) -> list[tuple[Any, str, Any]]:
     return [(sc.obj(name), "hide_render", True) for name in names]
+
+
+def door_open_changes() -> list[tuple[Any, str, Any]]:
+    """The leaf swung fully into the room. Still hidden from the camera (the page draws it), still shadowing."""
+    import studio_door
+
+    turn = sc.obj(sc.DOOR_LEAF).rotation_euler
+    return [(turn, "z", turn.z + studio_door.open_angle())]
 
 
 def uplight_free_collection() -> bpy.types.Collection:
@@ -178,6 +201,18 @@ def variant_changes(scene: bpy.types.Scene, spec: dict[str, Any]) -> list[tuple[
         changes += hidden_from_every_ray([*sc.live_figure_parts(role=sc.ROLE_HIM), sc.FIGURE_SHADOW])
     if spec.get("guitar_gone"):
         changes += hidden_from_every_ray(sc.live_figure_parts(role=sc.ROLE_GUITAR))
+    if spec.get("keys_down") is not None:
+        import studio_keys
+
+        changes += studio_keys.press_changes(spec["keys_down"])
+    if spec.get("keys_id"):
+        import studio_keys
+
+        changes += studio_keys.id_changes(scene)
+    if spec.get("door_open"):
+        changes += door_open_changes()
+    if spec.get("mug_gone"):
+        changes += hidden_from_every_ray(sc.live_figure_parts(role=sc.ROLE_MUG))
     if spec.get("screen_off"):
         glow = bpy.data.materials[sc.SCREEN_GLOW]
         emission = next(n for n in glow.node_tree.nodes if n.type == "EMISSION")
@@ -227,7 +262,7 @@ def render_variant(
     changes = variant_changes(scene, spec)
     if glare is not None and glare_size is not None and spec.get("camera") != "ref":
         changes.append((glare.inputs["Size"], "default_value", glare_size))
-    path = os.path.join(out_dir, f"{name}.png")
+    path = os.path.join(out_dir, f"{name}.{'exr' if spec.get('keys_id') else 'png'}")
     with temporarily(changes):
         scene.render.filepath = path
         started = time.time()
@@ -268,6 +303,8 @@ def main() -> None:
         studio_probes.display_lut(scene, out_dir)
         started = time.time()
         studio_probes.render_probes(scene, out_dir, temporarily)
+        if bpy.data.objects.get(sc.DOOR_LEAF) is not None:  # and again with the door open: the hall's light comes in
+            studio_probes.render_probes(scene, out_dir, temporarily, door_open_changes(), "probes_open.json")
         print(f"[render] probes took {time.time() - started:.0f}s")
 
 

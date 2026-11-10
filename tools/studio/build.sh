@@ -7,7 +7,16 @@
 # Save in Blender first: this reads the file from disk. Nothing here ever saves it.
 set -euo pipefail
 
-ALL_VARIANTS="base moon_off beam_off candle_off up_free up_off figure_gone body_gone guitar_gone screen_off plants_a plants_b plants_c plants_d plants_e plants_f plants_g matte_a matte_b matte_c matte_d matte_e matte_f matte_g"
+# STUDIO_OPENING=door builds the door that replaces the window (studio_door.py): no moonlight, so no moon_off /
+# beam_off / tree layer (c), and the door's own renders instead. It stays the window until the page draws the door.
+OPENING="${STUDIO_OPENING:-window}"
+COMMON_VARIANTS="base candle_off up_free up_off figure_gone body_gone guitar_gone screen_off keys_a keys_b keys_black keys_id plants_a plants_b plants_d plants_e plants_f plants_g matte_a matte_b matte_d matte_e matte_f matte_g"
+case "$OPENING" in
+  door) ALL_VARIANTS="$COMMON_VARIANTS door_open door_open_tv_off mug_gone plants_h matte_h" ;;
+  window) ALL_VARIANTS="$COMMON_VARIANTS moon_off beam_off plants_c matte_c" ;;
+  *) echo "STUDIO_OPENING must be door or window" >&2; exit 2 ;;
+esac
+export STUDIO_OPENING="$OPENING"
 case "${1:-}" in
   draft) SPP=48 VARIANTS="$ALL_VARIANTS" ;;
   final) SPP=384 VARIANTS="ref $ALL_VARIANTS" ;;  # ref is only for comparing the page against Cycles
@@ -34,7 +43,9 @@ step() {
 
 before=$(shasum -a 256 "$SOURCE" | cut -d' ' -f1)
 mkdir -p "$OUT"
-echo "studio $MODE build: $SPP samples -> $OUT"
+# Renders left from an older build would still be paired into deltas (e.g. a moon_off from before the door)
+rm -f "$OUT"/*.png "$OUT"/*.exr "$OUT"/probes*.json
+echo "studio $MODE build ($OPENING): $SPP samples -> $OUT"
 
 step export "$BLENDER" -b "$SOURCE" --python-exit-code 1 -P "$SCRIPTS/export.py" -- \
   --glb "$OUT/studio.glb" --facts "$OUT/scene.json"
