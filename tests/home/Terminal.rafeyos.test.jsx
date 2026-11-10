@@ -41,7 +41,7 @@ describe('home terminal: os', () => {
     run('help')
 
     const text = container.textContent
-    expect(text).toContain('os          operating system')
+    expect(text).toContain('os           operating system')
     expect(text.indexOf('operating system')).toBeGreaterThan(text.indexOf('get in touch'))
     expect(text).not.toContain('startx')
   })

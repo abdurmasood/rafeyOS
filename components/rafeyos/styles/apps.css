@@ -62,6 +62,12 @@
 :where(.rafeyos) .term { --tdim: color-mix(in srgb, var(--tfg) 55%, var(--tbg)); --tmarker: color-mix(in srgb, var(--tfg) 40%, var(--tbg)); --tsel: color-mix(in srgb, var(--tfg) 8%, var(--tbg)); --trule: color-mix(in srgb, var(--tfg) 30%, var(--tbg)); }
 /* Holds focus while a panel has the window, so the pickers hear only this window's keys */
 :where(.rafeyos) .term:focus { outline: none; }
+/* singularity covers the terminal while it runs. The pane scrolls and is not positioned, so the cover is placed against
+   the box around it: it stays put whatever the scrollback does, and stops at the header bar */
+:where(.rafeyos) .term-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+:where(.rafeyos) .term .singularity-cover { position: absolute; inset: 0; z-index: 1; overflow: hidden; cursor: default; }
+/* In dark the pane is a card inset from the frame (.pane in window.css); the cover takes the card's box and corners */
+:where(.rafeyos:not(.light)) .term .singularity-cover { inset: 0 8px 8px; border-radius: 11px; }
 :where(.rafeyos) .term .dim { color: var(--tdim); }
 :where(.rafeyos) .term .error-text { color: var(--tred); }
 :where(.rafeyos) .term .terminal-block > p { margin: 0; }
@@ -178,9 +184,7 @@
 :where(.rafeyos) .infobar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: color-mix(in srgb, var(--accent) 22%, var(--win)); font-size: 13.5px; }
 :where(.rafeyos) .infobar .sp { flex: 1; }
 
-/* projects */
-/* The /projects page's 3D scene (Tailwind-styled; base.css keeps its resets off it) */
-:where(.rafeyos) .p3d { flex: 1; min-height: 0; position: relative; background: #000; }
+:where(.rafeyos) .studio-app { flex: 1; min-height: 0; position: relative; background: #000; }
 
 /* minecraft */
 /* A game window: the world fills it and the HUD floats over it in the dock's glass. HUD text stays white in both

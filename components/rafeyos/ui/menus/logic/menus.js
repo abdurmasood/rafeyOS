@@ -3,12 +3,10 @@ import { SEPARATOR, disabledItem, menuItem } from '@/components/rafeyos/ui/menus
 
 /**
  * Right-click on a file or folder, on the desktop or in Files (only the desktop offers "Show in Files").
- * commands.openInProjects, when present, adds "Open in Projects" (project .txt files in Files). Rename, Move to Trash
- * and Open are disabled where their command is missing or null.
+ * Rename, Move to Trash and Open are disabled where their command is missing or null.
  */
 export const fileMenuItems = ({ commands, isFolder, onDesktop }) => [
   menuItem('Open', commands.open),
-  ...(commands.openInProjects ? [menuItem('Open in Projects', commands.openInProjects)] : []),
   disabledItem('Open With…'),
   SEPARATOR,
   disabledItem('Cut'),

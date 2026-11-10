@@ -76,13 +76,17 @@ describe('content commands', () => {
     expect(texts(run('projects | head -1'))[0]).toMatch(/^ {2}Arrhythmia/i)
   })
 
-  it('projects --3d takes the LoadingBar path and prints nothing', () => {
-    expect(run('projects --3d')).toMatchObject({ lines: [], effects: [{ type: HOME_EFFECTS.PROJECTS_3D }], code: 0 })
+  it('projects --3d is refused like any other option', () => {
+    expect(run('projects --3d')).toMatchObject({
+      lines: [error("projects: unknown option '--3d'. Usage: projects")],
+      effects: [],
+      code: 1,
+    })
   })
 
   it('projects with anything else keeps today\'s error', () => {
     expect(run('projects grid')).toMatchObject({
-      lines: [error("projects: unknown option 'grid'. Usage: projects [--3d]")],
+      lines: [error("projects: unknown option 'grid'. Usage: projects")],
       effects: [],
       code: 1,
     })

@@ -15,10 +15,10 @@ export const APP = Object.freeze({
   EDITOR: 'editor',
   MUSIC: 'music',
   MAIL: 'mail',
-  PROJECTS: 'projects',
   SETTINGS: 'settings',
   PROPERTIES: 'properties',
   MINECRAFT: 'minecraft',
+  STUDIO: 'studio',
 })
 
 /** @typedef {typeof APP[keyof typeof APP]} AppId */
@@ -27,7 +27,6 @@ export const APP = Object.freeze({
  * One-off launch options for the apps that take them (windowsReducer keeps them on the window as `init`).
  * @typedef {{
  *   [APP.SETTINGS]: { page: SettingsPage },
- *   [APP.PROJECTS]: { slug: string },
  *   [APP.FILES]: { select: string },
  * }} AppInits
  */
@@ -73,15 +72,15 @@ export const APPS = Object.freeze({
   [APP.EDITOR]: app({ id: APP.EDITOR, name: 'Text Editor', size: [620, 440], minSize: [360, 240] }),
   [APP.MUSIC]: app({ id: APP.MUSIC, name: 'Music', size: [380, 580], minSize: [340, 480] }),
   [APP.MAIL]: app({ id: APP.MAIL, name: 'Mail', size: [600, 460], minSize: [440, 360] }),
-  [APP.PROJECTS]: app({ id: APP.PROJECTS, name: 'Projects', size: [1140, 720], minSize: [560, 380] }),
   [APP.SETTINGS]: app({ id: APP.SETTINGS, name: 'Settings', size: [780, 540], minSize: [600, 420] }),
   [APP.PROPERTIES]: app({ id: APP.PROPERTIES, name: 'Properties', size: [340, 430], minSize: [340, 380], inDock: false }),
   [APP.MINECRAFT]: app({ id: APP.MINECRAFT, name: 'Minecraft', size: [960, 640], minSize: [640, 480] }),
+  [APP.STUDIO]: app({ id: APP.STUDIO, name: 'Rafey', size: [1100, 720], minSize: [560, 400] }), // his night room, live
 })
 
 export const APP_IDS = Object.freeze(Object.keys(APPS))
 
-export const DOCK_FAVORITES = Object.freeze([APP.FILES, APP.TERMINAL, APP.EDITOR, APP.MUSIC, APP.MAIL, APP.PROJECTS, APP.MINECRAFT, APP.SETTINGS])
+export const DOCK_FAVORITES = Object.freeze([APP.FILES, APP.TERMINAL, APP.EDITOR, APP.MUSIC, APP.MAIL, APP.MINECRAFT, APP.SETTINGS])
 
 /** @param {AppId} id */
 export const getApp = (id) => {
@@ -92,7 +91,8 @@ export const getApp = (id) => {
 
 /** @type {readonly AppId[]} */
 export const IMPLEMENTED_APPS = Object.freeze([
-  APP.FILES, APP.TERMINAL, APP.EDITOR, APP.MUSIC, APP.MAIL, APP.PROJECTS, APP.SETTINGS, APP.PROPERTIES, APP.MINECRAFT,
+  APP.FILES, APP.TERMINAL, APP.EDITOR, APP.MUSIC, APP.MAIL, APP.SETTINGS, APP.PROPERTIES, APP.MINECRAFT,
+  APP.STUDIO,
 ])
 
 /** @param {AppId} appId */

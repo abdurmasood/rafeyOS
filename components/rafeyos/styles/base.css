@@ -25,8 +25,8 @@
 }
 .rafeyos { position: fixed; inset: 0; font-family: var(--ui); font-size: 13px; line-height: 1.35; color: var(--fg); background: #1d1d1d; overflow: hidden; user-select: none; -webkit-user-select: none; cursor: default; }
 .rafeyos.light { --field: rgba(0,0,0,.06); --np-tint: #f8dccd; --np-art-a: #f7e4da; --np-art-b: #ecd2c5; --np-bar: rgba(0,0,0,.15); --win: #fafafa; --view: #ffffff; --hb: #ebebeb; --side: #ebebeb; --fg: rgba(0,0,0,.82); --fg2: rgba(0,0,0,.55); --line: rgba(0,0,0,.1); --btn: rgba(0,0,0,.07); --btnh: rgba(0,0,0,.12); --card: #ffffff; --menu: #ffffff; --tbg: #ffffff; --tfg: #171717; --tgreen: #26a269; --tblue: #1a5fb4; --tcyan: #1c71d8; --tred: #c01c28; --tuser: #9A6B00; --thost: #1F7A35; color-scheme: light; }
-.rafeyos button:where(:not(.p3d *)) { font: inherit; color: inherit; cursor: default; }
-.rafeyos svg:where(:not(.p3d *)) { display: block; }
+.rafeyos button:where(:not(.studio-app *)) { font: inherit; color: inherit; cursor: default; }
+.rafeyos svg:where(:not(.studio-app *)) { display: block; }
 .rafeyos :focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 1px; }
 .rafeyos input:focus-visible, .rafeyos textarea:focus-visible { outline: none; }
 .rafeyos .seltext, .rafeyos .seltext * { user-select: text; -webkit-user-select: text; cursor: text; }
@@ -44,8 +44,8 @@
 /* Leak resets: app/globals.css (a L20-27, button L42-59, scrollbars L125-128) and Tailwind preflight.
    Element resets use :where() so they only tie with the globals (this chunk loads later and wins)
    and every component rule from the mockup still beats them. */
-/* .p3d hosts the Tailwind-styled /projects scene, so it keeps preflight's border-box and its own button and svg styles */
-.rafeyos *:where(:not(.p3d *)), .rafeyos *:where(:not(.p3d *))::before, .rafeyos *:where(:not(.p3d *))::after { box-sizing: content-box; }
+/* .studio-app hosts a Tailwind-styled scene (the studio room), so it keeps preflight's border-box and its own button and svg styles */
+.rafeyos *:where(:not(.studio-app *)), .rafeyos *:where(:not(.studio-app *))::before, .rafeyos *:where(:not(.studio-app *))::after { box-sizing: content-box; }
 :where(.rafeyos) h3, :where(.rafeyos) h4 { font-weight: 700; }
 :where(.rafeyos) a, :where(.rafeyos) a:hover { color: inherit; font-weight: inherit; }
 :where(.rafeyos) button { border-radius: 0; border: 0; padding: 0; background-color: transparent; transition: none; }

@@ -437,6 +437,13 @@
   }
 }
 
+/* singularity: the program takes the whole page while it runs, over the scrollback */
+.terminal .singularity-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
 /* nano: the buffer and the file name prompt type in the terminal's own font and colours */
 .terminal .nano > p {
   margin: 0;

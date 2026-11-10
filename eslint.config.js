@@ -39,7 +39,7 @@ const shellSiblingRule = (folder, siblings) => layerRule('shell', RAFEYOS_LAYERS
 })
 
 export default [
-  { ignores: ['dist', '.next', 'coverage'] },
+  { ignores: ['dist', '.next', 'coverage', 'public/draco'] }, // public/draco: vendored three.js Draco decoder
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
@@ -72,10 +72,21 @@ export default [
       'tests/rafeyos/**/*.{js,jsx}',
       'components/home/**/*.{js,jsx}',
       'tests/home/**/*.{js,jsx}',
-      'app/projects/**/*.{js,jsx}',
-      'tests/projects/**/*.{js,jsx}',
+      'components/studio/**/*.{js,jsx}',
+      'tests/studio/**/*.{js,jsx}',
+      'components/singularity/**/*.{js,jsx}',
+      'tests/singularity/**/*.{js,jsx}',
     ],
     rules: { 'react/prop-types': 'off' },
+  },
+  {
+    // react-three-fiber JSX takes three.js object props, which aren't DOM attributes
+    files: ['components/studio/**/*.{js,jsx}'],
+    rules: {
+      'react/no-unknown-property': ['error', {
+        ignore: ['object', 'geometry', 'matrix', 'matrixAutoUpdate', 'renderOrder', 'frustumCulled', 'map', 'transparent', 'depthWrite', 'blending', 'toneMapped'],
+      }],
+    },
   },
   ...Object.entries(RAFEYOS_LAYERS).map(([layer, forbidden]) => layerRule(layer, forbidden)),
   ...SHELL_FEATURES.map((folder) => shellSiblingRule(folder, SHELL_FEATURES.filter((other) => other !== folder))),

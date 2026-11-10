@@ -11,7 +11,6 @@ import { TRASH } from '@/components/rafeyos/core/vfs/buildVfs'
 import { isDir } from '@/components/rafeyos/core/vfs/queries'
 import { backgroundMenuItems, mainMenuItems, viewOptionsItems } from './filesMenus'
 import { FILES_ACTIONS } from './filesReducer'
-import { projectForPath } from '@/components/rafeyos/core/vfs/projectPaths'
 import { APP } from '@/components/rafeyos/core/catalog/apps'
 
 /**
@@ -30,7 +29,7 @@ const nameAnchorOf = (/** @type {Element} */ item) => rectOfElement(item.querySe
  * @param {{ state: FilesState, dispatch: Dispatch<FilesAction>, items: string[] }} files - the window's reducer and listing
  */
 export const useFilesMenus = ({ state, dispatch, items }) => {
-  const { vfs, content } = useVfs()
+  const { vfs } = useVfs()
   const windowManager = useWindowManager()
   const openPath = useOpenPath()
   const openMenu = useMenu()
@@ -42,12 +41,6 @@ export const useFilesMenus = ({ state, dispatch, items }) => {
   const inTrash = state.path === TRASH
   /** @param {string} path */
   const commandsFor = (path) => ({ ...pathCommands({ vfs, windowManager, openPath }, path), ...trashActions(path) })
-  // A project's .txt opens in the Text Editor; the menu also offers its 3D view
-  /** @param {string} path */
-  const openInProjectsFor = (path) => {
-    const project = projectForPath({ vfs, content }, path)
-    return project ? () => windowManager.openApp(APP.PROJECTS, { init: { slug: project.slug } }) : null
-  }
   /**
    * @param {string} path
    * @param {MouseEvent} event
@@ -57,7 +50,7 @@ export const useFilesMenus = ({ state, dispatch, items }) => {
     /** @param {string} _from @param {string} to */
     const onRenamed = (_from, to) => select(to)
     const rename = renameFor(path, nameAnchorOf(/** @type {Element} */ (event.currentTarget)), onRenamed)
-    const commands = { ...commandsFor(path), rename, openInProjects: openInProjectsFor(path), ...(inTrash ? { emptyTrash } : {}) }
+    const commands = { ...commandsFor(path), rename, ...(inTrash ? { emptyTrash } : {}) }
     const menu = fileMenuItems({ commands, isFolder: isDir(vfs, path), onDesktop: false })
     openMenu(menu, pointOfEvent(event))
   }

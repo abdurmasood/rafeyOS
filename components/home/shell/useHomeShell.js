@@ -85,9 +85,6 @@ const runEffects = (effects, handlers) =>
         case HOME_EFFECTS.MAILTO:
           handlers.mailto(effect.href)
           return outcome
-        case HOME_EFFECTS.PROJECTS_3D:
-          handlers.projects3d()
-          return outcome
         case HOME_EFFECTS.HANDOFF:
           handlers.handoff(effect)
           return outcome
@@ -202,7 +199,7 @@ const useScreen = ({ terminal, cwd, setForegroundId }) => {
 
 /**
  * The homepage terminal's session.
- * @param {{ handlers: { newTab: Function, mailto: Function, projects3d: Function, handoff: Function } }} options
+ * @param {{ handlers: { newTab: Function, mailto: Function, handoff: Function } }} options
  *   what the page does for its own effects
  */
 export const useHomeShell = ({ handlers }) => {

@@ -22,8 +22,8 @@ const PROCESS_NAMES = Object.freeze({
   [APP.MUSIC]: 'gnome-music',
   [APP.SETTINGS]: 'gnome-control-center',
   [APP.MAIL]: 'geary',
-  [APP.PROJECTS]: 'projects',
   [APP.MINECRAFT]: 'minecraft',
+  [APP.STUDIO]: 'rafey',
 })
 
 /** @type {Processes} A terminal with no windows around it, as on the homepage: its own bash and nothing else. */

@@ -64,7 +64,7 @@ export const SYSTEM_COMMANDS = Object.freeze([
   'ls', 'pwd', 'mkdir', 'rmdir', 'touch', 'rm', 'cp', 'mv', 'cat', 'tree', 'find', 'ln', 'stat', 'echo', 'head', 'tail', 'wc', 'grep', 'sort', 'uniq',
   'less', 'whoami', 'uname', 'date', 'uptime', 'hostname', 'clear', 'which', 'man', 'env', 'true', 'false', 'sudo', 'open', 'xdg-open', 'gio',
   'nautilus', 'gedit', 'gnome-text-editor', 'nano', 'vim', 'vi', 'rafeyos', 'startx', 'gsettings', 'ps', 'kill', 'neofetch',
-  'reset-home',
+  'reset-home', 'singularity',
 ])
 
 const OS_RELEASE = 'PRETTY_NAME="rafeyOS 24.04 LTS"\nNAME="rafeyOS"\nVERSION_ID="24.04"\nID=rafeyos\n'

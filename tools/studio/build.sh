@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Build the night room's assets (the "Rafey" app in rafeyOS) from room-night.blend.
+#
+#   tools/studio/build.sh draft   quick look: fewer samples, a quarter of the pixels; the app shows "draft"
+#   tools/studio/build.sh final   what ships (~18 min); don't keep the Rafey app open while it renders, it jitters
+#
+# Save in Blender first: this reads the file from disk. Nothing here ever saves it.
+set -euo pipefail
+
+# STUDIO_OPENING=door builds the door that replaces the window (studio_door.py): no moonlight, so no moon_off /
+# beam_off / tree layer (c), and the door's own renders instead. It stays the window until the page draws the door.
+OPENING="${STUDIO_OPENING:-window}"
+COMMON_VARIANTS="base candle_off up_free up_off figure_gone body_gone guitar_gone screen_off keys_a keys_b keys_black keys_id plants_a plants_b plants_d plants_e plants_f plants_g matte_a matte_b matte_d matte_e matte_f matte_g"
+case "$OPENING" in
+  door) ALL_VARIANTS="$COMMON_VARIANTS door_open door_open_tv_off mug_gone plants_h matte_h" ;;
+  window) ALL_VARIANTS="$COMMON_VARIANTS moon_off beam_off plants_c matte_c" ;;
+  *) echo "STUDIO_OPENING must be door or window" >&2; exit 2 ;;
+esac
+export STUDIO_OPENING="$OPENING"
+case "${1:-}" in
+  draft) SPP=48 VARIANTS="$ALL_VARIANTS" ;;
+  final) SPP=384 VARIANTS="ref $ALL_VARIANTS" ;;  # ref is only for comparing the page against Cycles
+  *) echo "usage: tools/studio/build.sh draft|final" >&2; exit 2 ;;
+esac
+MODE=$1
+
+BLENDER="${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}"
+SOURCE=/Users/rafey/Blender/room-night.blend  # studio_common.SOURCE_BLEND; the scripts refuse any other file
+OUT="/Users/rafey/Blender/web-out/$MODE"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+SCRIPTS="$REPO/tools/studio/blender"
+export STUDIO_QUALITY="$MODE"  # read by studio_common: sets the plate size for export and render alike
+
+# Blender is chatty; keep the pipeline's own lines and anything that went wrong
+only_ours() { grep -E '^\[(export|render|post)\]|Error|Traceback|File "' || true; }
+
+step() {
+  local name=$1 started=$SECONDS
+  shift
+  "$@" 2>&1 | only_ours
+  echo "  $name took $((SECONDS - started)) s"
+}
+
+before=$(shasum -a 256 "$SOURCE" | cut -d' ' -f1)
+mkdir -p "$OUT"
+# Renders left from an older build would still be paired into deltas (e.g. a moon_off from before the door)
+rm -f "$OUT"/*.png "$OUT"/*.exr "$OUT"/probes*.json
+echo "studio $MODE build ($OPENING): $SPP samples -> $OUT"
+
+step export "$BLENDER" -b "$SOURCE" --python-exit-code 1 -P "$SCRIPTS/export.py" -- \
+  --glb "$OUT/studio.glb" --facts "$OUT/scene.json"
+# shellcheck disable=SC2086  # VARIANTS is a word list on purpose
+step render "$BLENDER" -b "$SOURCE" --python-exit-code 1 -P "$SCRIPTS/render.py" -- \
+  --variants $VARIANTS --spp "$SPP" --out "$OUT" --probes
+step postprocess "$BLENDER" -b --factory-startup --python-exit-code 1 -P "$SCRIPTS/postprocess.py" -- \
+  --renders "$OUT"
+cp "$OUT/studio.glb" "$REPO/public/studio/v1/studio.glb"
+if [ -f "$OUT/motion.bin" ]; then cp "$OUT/motion.bin" "$REPO/public/studio/v1/motion.bin"; fi
+
+if [ "$(shasum -a 256 "$SOURCE" | cut -d' ' -f1)" != "$before" ]; then
+  echo "WARNING: $SOURCE changed during the build (saved in Blender meanwhile?)" >&2
+fi
+echo "done in $((SECONDS / 60)) min $((SECONDS % 60)) s. Reopen Rafey in rafeyOS (/os?app=studio)."

@@ -8,9 +8,16 @@ import { getApp } from '@/components/rafeyos/core/catalog/apps'
 
 afterEach(cleanup)
 
+// Pinned apps from the dock, the rest (like Studio) from the app grid
+const launch = (name) => {
+  if (within(dock()).queryByRole('button', { name })) return clickDock(name)
+  fireEvent.click(within(dock()).getByRole('button', { name: 'Show Apps' }))
+  fireEvent.click(within(screen.getByRole('group', { name: 'Applications' })).getByRole('button', { name }))
+}
+
 const openEveryApp = () => {
   const view = renderDesktop()
-  overviewApps().forEach((id) => clickDock(getApp(id).name))
+  overviewApps().forEach((id) => launch(getApp(id).name))
   return view
 }
 

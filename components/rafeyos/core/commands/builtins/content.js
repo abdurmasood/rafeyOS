@@ -1,7 +1,6 @@
 // Commands that print Rafey's content: help, bio, projects, blog, skills, music, contact
 import { PANEL_KINDS, dim, panel, pre } from '@/components/rafeyos/core/commands/lines'
 import { failure, operands, result, EFFECTS } from './result'
-import { APP } from '@/components/rafeyos/core/catalog/apps'
 import { RAFEY_HOME } from '@/components/rafeyos/core/vfs/buildVfs'
 import { joinPath } from '@/components/rafeyos/core/vfs/paths'
 
@@ -21,9 +20,7 @@ const projectRow = (project) =>
 
 // On a terminal, the picker the homepage has always shown; in a pipe or file, the list
 const projects = ({ argv, content, tty }) => {
-  const unknown = argv.find((word) => word !== '--3d')
-  if (unknown !== undefined) return failure(`projects: unknown option '${unknown}'. Usage: projects [--3d]`)
-  if (argv.length) return result([pre('Opening Projects…')], [{ type: EFFECTS.OPEN_APP, app: APP.PROJECTS }])
+  if (argv.length) return failure(`projects: unknown option '${argv[0]}'. Usage: projects`)
   if (tty) return result([panel(PANEL_KINDS.PROJECTS_PICKER, {}, { foreground: true })])
   return result([pre(content.projects.map(projectRow).join('\n'))])
 }

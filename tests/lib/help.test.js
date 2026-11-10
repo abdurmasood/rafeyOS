@@ -1,16 +1,18 @@
 import { describe, it, expect } from 'vitest'
 import { HELP_LINES, HELP_HINT, HOME_HELP_LINES, RAFEYOS_HELP_LINE, helpRow } from '@/lib/help.js'
 
-// Copied verbatim from components/home/Terminal.jsx before the extraction (HEAD)
+// The list as components/home/Terminal.jsx had it before the extraction (HEAD), plus singularity, whose 11 letters
+// moved every description one column right
 const ORIGINAL_HELP = [
   'Available commands:',
   '',
-  '  bio         biography',
-  "  skills      toolkit",
-  '  projects    body of work',
-  "  blog        thoughts",
-  '  music       production',
-  '  contact     get in touch',
+  '  bio          biography',
+  "  skills       toolkit",
+  '  projects     body of work',
+  "  blog         thoughts",
+  '  music        production',
+  '  contact      get in touch',
+  '  singularity  a black hole',
   '',
   "<span class='grey'>Use ↑ for history, tab to autocomplete, 'clear' to reset.</span>",
 ].join('\n')
@@ -32,7 +34,7 @@ describe('help text', () => {
     const contactRow = HELP_LINES.find((line) => line.includes('contact'))
     const column = contactRow.indexOf('get in touch')
 
-    expect(RAFEYOS_HELP_LINE).toBe('  os          operating system')
+    expect(RAFEYOS_HELP_LINE).toBe('  os           operating system')
     expect(RAFEYOS_HELP_LINE.indexOf('operating system')).toBe(column)
   })
 
