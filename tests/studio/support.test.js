@@ -117,6 +117,37 @@ describe('studio manifest', () => {
     expect(() => validateManifest({ ...manifest, figure })).toThrow(new StudioManifestError('studio manifest figure keyPitch needs two distances: across and between rows'))
   })
 
+  it('rejects room facts for his night that are not points: the desk edge, the synths, his skull', () => {
+    const root = [{ name: 'root', parent: -1, pivot: [0, 0, 0] }]
+    expect(() => validateManifest({ ...manifest, figure: { bones: root, desk: { edge: [[0, 0, 0]] } } })).toThrow(
+      new StudioManifestError('studio manifest figure desk needs its front edge as two points'),
+    )
+    expect(() => validateManifest({ ...manifest, figure: { bones: root, synth: { seat: [0, 0, 0], keys: [[0, 0, 0]], upper: [0, 0, 0] } } })).toThrow(
+      new StudioManifestError('studio manifest figure synth needs a seat, a key line (two points) and an upper reach point'),
+    )
+    expect(() => validateManifest({ ...manifest, figure: { bones: root, headphones: { centre: [0, 0, 0], radii: [0.1], colour: [0, 0, 0] } } })).toThrow(
+      new StudioManifestError('studio manifest figure headphones need his skull centre, its half-sizes and a colour'),
+    )
+  })
+
+  it('has the room facts and layers his night needs', () => {
+    const names = manifest.figure.bones.map((b) => b.name)
+    for (const bone of ['phones', 'chair', 'guitar', 'thigh_L', 'shin_R', 'foot_L', 'toe_R']) expect(names).toContain(bone)
+    expect(manifest.figure.bones.length * 4 + 25).toBeLessThanOrEqual(256) // the bones fit WebGL2's guaranteed uniforms
+    for (const key of ['desk', 'synth', 'headphones', 'guitar']) expect(manifest.figure[key]).toBeTruthy()
+    for (const delta of ['figure', 'body', 'guitar', 'screen']) expect(manifest.deltas[delta]).toBeTruthy()
+    for (const layer of ['f', 'g']) expect(manifest.plantLayers[layer]).toBeTruthy() // the empty chair
+    expect(manifest.light.probes.valid.filter(Boolean).length).toBeGreaterThan(200)
+  })
+
+  it('rejects live-light data that does not match its grid', () => {
+    const { probes } = manifest.light
+    const short = { ...manifest, light: { ...manifest.light, probes: { ...probes, cube: probes.cube.slice(0, 18) } } }
+    expect(() => validateManifest(short)).toThrow(new StudioManifestError('studio manifest light probes need six colours and a valid flag per grid cell'))
+    const noLut = { ...manifest, light: { probes, lut: { size: 33 } } }
+    expect(() => validateManifest(noLut)).toThrow(new StudioManifestError('studio manifest light lut needs a size and its log2 range'))
+  })
+
   it('rejects a packed layer that points outside its atlas', () => {
     const broken = { ...manifest, deltas: { moon: { rect: [0, 0, 1, 1], pos: { atlasRect: [0, 0, 1.2, 1] }, neg: { atlasRect: [0, 0, 1, 1] } } } }
     expect(() => validateManifest(broken)).toThrow(StudioManifestError)

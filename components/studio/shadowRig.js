@@ -1,5 +1,6 @@
-// Off-screen passes behind the moving shadows: the swaying tree seen from the moon (blurred into
-// soft leaf shadows) and the floor Monstera seen from its uplight (so its wall shadow sways too).
+// Off-screen passes behind the moving shadows: the swaying tree (and him, once he's up and walks into the
+// moonbeam) seen from the moon, blurred into soft shadows, and the floor Monstera seen from its uplight (so
+// its wall shadow sways too). Seated he's outside the beam, so the plates have no moon shadow of him to double.
 import {
   Color,
   LinearFilter,
@@ -13,7 +14,7 @@ import {
   WebGLRenderTarget,
 } from 'three'
 import { FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js'
-import { UP_FAR, createMoonSilhouetteMaterial, createUpDepthMaterial } from './materials'
+import { UP_FAR, createFigureSilhouetteMaterial, createMoonSilhouetteMaterial, createUpDepthMaterial } from './materials'
 import { blurFragment, blurVertex } from './shaders/live.glsl'
 
 const MOON_SIZE = 512
@@ -71,9 +72,9 @@ const createBlur = () => {
 }
 
 /**
- * @param {{ manifest, shared, tree?: { mesh, uniforms }, monstera?: { mesh, sway } }} options
+ * @param {{ manifest, shared, tree?: { mesh, uniforms }, monstera?: { mesh, sway }, figure?: { meshes, rig } }} options
  */
-export const createShadowRig = ({ manifest, shared, tree, monstera }) => {
+export const createShadowRig = ({ manifest, shared, tree, monstera, figure = null }) => {
   const moonCamera = spotCamera(manifest.moon, manifest.moon.coneDeg * MOON_FOV_MARGIN, 0.5, 12)
   const upCamera = spotCamera(manifest.uplight, manifest.uplight.coneDeg + UP_FOV_MARGIN_DEG, 0.02, UP_FAR)
   const moonRaw = target(MOON_SIZE, LinearFilter)
@@ -84,6 +85,10 @@ export const createShadowRig = ({ manifest, shared, tree, monstera }) => {
   const moonScene = new Scene()
   const upScene = new Scene()
   if (tree) moonScene.add(twin(tree.mesh, createMoonSilhouetteMaterial(tree.uniforms)))
+  if (figure) {
+    const silhouette = createFigureSilhouetteMaterial(figure.rig.matrices)
+    for (const mesh of figure.meshes) moonScene.add(twin(mesh, silhouette))
+  }
   const upDepth = monstera ? createUpDepthMaterial(shared, monstera.sway) : null
   if (monstera) upScene.add(twin(monstera.mesh, upDepth))
   const blur = createBlur()

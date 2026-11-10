@@ -1,6 +1,7 @@
 // The static room. Proxies show the projected Cycles plate, and each light layer is added back
 // with a live gain, so at rest (every gain 1, nothing moved) the pixels equal the render:
 //   D = base − (1 − T_tree)·ΔMoon + (k_beam − 1)·ΔHaze + (g_candle − 1)·ΔCandle + (V_live − V_rest)·ΔUp
+//       + gone·ΔFigure + up·ΔBody + taken·ΔGuitar + asleep·ΔScreen
 import { beamChunk, deltaChunk, moonShadowChunk, openingChunk, plateChunk } from './common.glsl'
 
 export const roomVertex = /* glsl */ `
@@ -90,6 +91,16 @@ float upVisible(sampler2D depthMap, vec3 world) {
   return lit / 9.0;
 }
 
+// him rolled away from the desk, him up out of the chair, the guitar off its hook, and the monitor asleep
+uniform float uFigureGone;
+uniform float uBodyGone;
+uniform float uGuitarGone;
+uniform float uScreenOff;
+${layerUniforms('Figure')}
+${layerUniforms('Body')}
+${layerUniforms('Guitar')}
+${layerUniforms('Screen')}
+
 void main() {
   vec2 uv = plateUv(vPlateClip);
   vec3 colour = texture2D(uBase, uv, PLATE_LOD_BIAS).rgb;
@@ -104,6 +115,18 @@ void main() {
 #endif
 #ifdef HAS_UPLIGHT
   if (insideRect(uv, uUpRect)) colour += (upVisible(uUpLive, vWorld) - upVisible(uUpRest, vWorld)) * sampleDelta(${layer('Up')});
+#endif
+#ifdef HAS_FIGURE
+  if (uFigureGone > 0.0 && insideRect(uv, uFigureRect)) colour += uFigureGone * sampleDelta(${layer('Figure')});
+#endif
+#ifdef HAS_BODY
+  if (uBodyGone > 0.0 && insideRect(uv, uBodyRect)) colour += uBodyGone * sampleDelta(${layer('Body')});
+#endif
+#ifdef HAS_GUITAR
+  if (uGuitarGone > 0.0 && insideRect(uv, uGuitarRect)) colour += uGuitarGone * sampleDelta(${layer('Guitar')});
+#endif
+#ifdef HAS_SCREEN
+  if (uScreenOff > 0.0 && insideRect(uv, uScreenRect)) colour += uScreenOff * sampleDelta(${layer('Screen')});
 #endif
   gl_FragColor = vec4(clamp(colour, 0.0, 1.0), 1.0);
 }
