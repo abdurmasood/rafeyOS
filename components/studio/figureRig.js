@@ -46,9 +46,9 @@ export const createFigureRig = (bones) => {
   const q = new Quaternion()
   const qHand = new Quaternion()
 
-  const turn = (i, [pitch = 0, yaw = 0] = []) => {
+  const turn = (i, [pitch = 0, yaw = 0, roll = 0] = []) => {
     const { x, y, z } = pivots[i]
-    local.makeTranslation(x, y, z).multiply(scratch.makeRotationFromEuler(euler.set(pitch, yaw, 0)))
+    local.makeTranslation(x, y, z).multiply(scratch.makeRotationFromEuler(euler.set(pitch, yaw, roll)))
     local.multiply(scratch.makeTranslation(-x, -y, -z))
     const parent = bones[i].parent
     if (parent < 0) matrices[i].copy(local)

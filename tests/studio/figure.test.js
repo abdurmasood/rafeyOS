@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { Vector3 } from 'three'
 import { createFigureRig, elbowFor } from '@/components/studio/figureRig'
-import { POSE, createFigurePoser, settle } from '@/lib/studio/figurePose'
-import { FINGERS, HANDS, strokeSlot } from '@/lib/studio/typing'
+import { roomFragment } from '@/components/studio/shaders/room.glsl'
+import { lineStarts, normaliseSource } from '@/lib/studio/code'
+import { LONG_PAUSES, POSE, createFigurePoser, longPauseFor, settle } from '@/lib/studio/figurePose'
+import { manifest } from '@/lib/studio/manifest'
+import { FINGERS, HANDS, createTypingTimeline, strokeSlot } from '@/lib/studio/typing'
 
 // A small seated rig in three.js space: forward is -z, up is +y, his left is -x
 const arm = (side, x) => [
@@ -25,19 +28,31 @@ const BONES = (() => {
   return bones
 })()
 const RESTS = { L: [-0.3, 0.7, -0.05], R: [0.3, 0.7, -0.05] }
+const MOUSE = [0.3, 0.75, -0.45]
+const PHONE = [0.5, 0.75, -0.3]
 const pivotOf = (name) => new Vector3(...BONES.find((b) => b.name === name).pivot)
 const posed = (rig, name, point = pivotOf(name)) => point.clone().applyMatrix4(rig.matrices[BONES.findIndex((b) => b.name === name)])
 
-const state = ({ since = 0.05, until = 0.1, strokes = new Float32Array(10), glance = null } = {}) => ({
+const state = ({ since = 0.05, until = 0.1, index = 0, strokes = new Float32Array(10), glance = null, hands, pace } = {}) => ({
   typed: 0,
   extra: '',
   strokes,
-  pause: { since, until, length: since + until },
+  pause: { since, until, length: since + until, index },
   glance,
+  hands,
+  pace,
 })
+/** A pause index (seed 7) whose long pause he sits through the given way. */
+const pauseSatThrough = (name) => {
+  for (let index = 0; index < 1000; index++) if (longPauseFor(index, 7, true) === name) return index
+  throw new Error(`no pause sits ${name}`)
+}
+const breathRoom = POSE.breath * 1.2 * POSE.sigh + 1e-9 // the most a breath (or a sigh) moves his spine
 
 describe('figure pose', () => {
-  const poser = createFigurePoser({ bones: BONES, rests: RESTS, phone: [0.5, 0.75, -0.3] })
+  const poser = createFigurePoser({ bones: BONES, rests: RESTS, phone: PHONE })
+  const withMouse = createFigurePoser({ bones: BONES, rests: RESTS, phone: PHONE, mouse: MOUSE })
+  const mouseWrist = [MOUSE[0], MOUSE[1] + POSE.mouseUp, MOUSE[2] + POSE.mouseBack] // the test keyboard runs along x
 
   it('names an angle for the swivel, spine, head, hands and every finger joint', () => {
     const { angles } = poser(state(), 0)
@@ -51,12 +66,24 @@ describe('figure pose', () => {
     expect(angles.swivel[1]).toBe(0)
   })
 
-  it('lifts a striking finger at both joints', () => {
+  it('presses a striking finger down at both joints, and keeps the hand level', () => {
     const strokes = new Float32Array(10)
     strokes[strokeSlot('L', 'middle')] = 1
-    const { angles } = poser(state({ strokes }), 1)
-    expect(angles.middle_L_a[0]).toBeCloseTo(POSE.fingerLift[0])
-    expect(angles.middle_L_b[0]).toBeCloseTo(POSE.fingerLift[1])
+    const { angles, reach } = poser(state({ strokes }), 1)
+    expect(angles.middle_L_a[0]).toBeCloseTo(-POSE.fingerPress[0])
+    expect(angles.middle_L_b[0]).toBeCloseTo(-POSE.fingerPress[1])
+    expect(reach.L.palm).toEqual([0, 0])
+  })
+
+  it('stretches a finger toward a key further away and turns it toward one across', () => {
+    const aims = new Float32Array(20)
+    const slot = strokeSlot('R', 'index')
+    aims[2 * slot] = 1 // one key to his right
+    aims[2 * slot + 1] = -1 // one row away from him
+    const { angles } = poser({ ...state(), aims }, 1)
+    expect(angles.index_R_a[0]).toBeCloseTo(POSE.fingerRow[0])
+    expect(angles.index_R_b[0]).toBeCloseTo(POSE.fingerRow[1])
+    expect(angles.index_R_a[1]).toBeCloseTo(-POSE.fingerColumn)
   })
 
   it('hovers his hands a little in a short pause', () => {
@@ -64,14 +91,66 @@ describe('figure pose', () => {
     expect(reach.R.target[1]).toBeCloseTo(BONES.find((b) => b.name === 'hand_R').pivot[1] + POSE.hoverLift)
   })
 
-  it('in a long pause leans back, rests his forearms on the armrests and swivels a little', () => {
-    for (let since = POSE.leanEase; since <= 9 - POSE.leanEase; since += 0.37) {
-      const { angles, reach } = poser(state({ since, until: 9 - since }), since)
-      expect(Math.abs(angles.spine[0] - POSE.lean)).toBeLessThanOrEqual(POSE.breath + 1e-9)
-      expect(Math.abs(angles.swivel[1])).toBeLessThanOrEqual(POSE.swivel)
-      const swivelled = new Vector3(...RESTS.L).sub(pivotOf('swivel')).applyAxisAngle(new Vector3(0, 1, 0), angles.swivel[1]).add(pivotOf('swivel'))
-      expect(new Vector3(...reach.L.target).distanceTo(swivelled)).toBeLessThan(1e-9)
+  it('sits through each long pause one of a few ways, each with its own lean, hands and chair', () => {
+    for (const [name, way] of Object.entries(LONG_PAUSES)) {
+      const index = pauseSatThrough(name)
+      for (let since = POSE.leanEase; since <= 9 - POSE.leanEase; since += 0.37) {
+        const { angles, reach, longPause } = withMouse(state({ since, until: 9 - since, index }), since)
+        expect(longPause).toBe(name)
+        const reachingLean = way.hands.R === 'mouse' ? POSE.mouseLean[0] : 0
+        expect(Math.abs(angles.spine[0] - way.lean - reachingLean)).toBeLessThanOrEqual(breathRoom)
+        expect(Math.abs(angles.swivel[1])).toBeLessThanOrEqual(way.swivel * (1 + 2 * POSE.swivelOvershoot) + 1e-9)
+        for (const side of HANDS) {
+          const target = new Vector3(...reach[side].target)
+          const swivelled = new Vector3(...RESTS[side]).sub(pivotOf('swivel')).applyAxisAngle(new Vector3(0, 1, 0), angles.swivel[1]).add(pivotOf('swivel'))
+          if (way.hands[side] === 'armrest') expect(target.distanceTo(swivelled)).toBeLessThan(1e-9)
+          if (way.hands[side] === 'mouse') expect(target.distanceTo(new Vector3(...mouseWrist))).toBeLessThan(1e-9)
+          if (way.hands[side] === 'keys') expect(target.distanceTo(pivotOf(`hand_${side}`))).toBeLessThan(0.02)
+        }
+      }
     }
+  })
+
+  it('leans well back in some pauses and toward the screen in others', () => {
+    const leans = Object.values(LONG_PAUSES).map((way) => way.lean)
+    expect(Math.max(...leans)).toBeGreaterThan(0.2) // about 14 degrees: reads at room size
+    expect(Math.min(...leans)).toBeLessThan(0)
+  })
+
+  it('sits back instead of scrolling when there is no mouse', () => {
+    const { longPause } = poser(state({ since: 3, until: 3, index: pauseSatThrough('scroll') }), 3)
+    expect(longPause).toBe('sitBack')
+  })
+
+  it('never darts to the mouse: he only takes it in a pause long enough to keep it', () => {
+    for (let index = 0; index < 40; index++) {
+      const { reach } = withMouse(state({ since: 1, until: 1, index }), 1)
+      expect(new Vector3(...reach.R.target).distanceTo(new Vector3(...mouseWrist))).toBeGreaterThan(0.05)
+    }
+    const scroll = pauseSatThrough('scroll')
+    const brief = POSE.scrollMinPause - 0.5
+    expect(withMouse(state({ since: brief / 2, until: brief / 2, index: scroll }), 1).longPause).toBe('sitBack')
+    expect(withMouse(state({ since: 2, until: 2, index: scroll }), 1).longPause).toBe('scroll')
+  })
+
+  it('lays his fingers flat along the mouse and leans toward it', () => {
+    const { angles } = withMouse(state({ since: 3, until: 3, index: pauseSatThrough('scroll') }), 3)
+    for (const finger of ['middle', 'ring', 'little']) expect(angles[`${finger}_R_a`][0]).toBeCloseTo(POSE.mouseFingers[0])
+    expect(angles.index_R_a[0]).toBeLessThanOrEqual(POSE.mouseFingers[0] + 1e-9) // it clicks now and then
+    expect(angles.spine[2]).toBeCloseTo(POSE.mouseLean[2])
+  })
+
+  it('moves his wrists across the keys with his hands', () => {
+    const { reach } = poser(state({ hands: { L: [1, -1], R: [0, 0] } }), 3)
+    const expected = pivotOf('hand_L').add(new Vector3(POSE.keyPitch[0], 0, -POSE.keyPitch[1]))
+    expect(new Vector3(...reach.L.target).distanceTo(expected)).toBeLessThan(1e-9)
+    expect(reach.R.target).toEqual(BONES.find((b) => b.name === 'hand_R').pivot)
+  })
+
+  it('leans in when he is typing fast', () => {
+    const fast = poser(state({ pace: 1 }), 2).angles.spine[0]
+    const slow = poser(state({ pace: 0 }), 2).angles.spine[0]
+    expect(fast - slow).toBeCloseTo(-POSE.leanIn)
   })
 
   it('eases into and out of a pause without jumps', () => {
@@ -100,6 +179,13 @@ describe('figure rig', () => {
   it('starts in the rest pose the render was made in', () => {
     const rig = createFigureRig(BONES)
     expect(posed(rig, 'hand_L').distanceTo(pivotOf('hand_L'))).toBeLessThan(1e-12)
+  })
+
+  it('tips a bone sideways about its pivot when given a roll', () => {
+    const rig = createFigureRig(BONES)
+    rig.pose({ spine: [0, 0, 0.3] })
+    expect(posed(rig, 'spine').distanceTo(pivotOf('spine'))).toBeLessThan(1e-12)
+    expect(posed(rig, 'head').x).toBeLessThan(pivotOf('head').x - 0.05)
   })
 
   it('turns a bone about its own pivot and carries its children along', () => {
@@ -132,5 +218,69 @@ describe('figure rig', () => {
     const e = elbowFor(new Vector3(0, 0, 0), new Vector3(1, 0, 0), 1, 1, new Vector3(0, 1, 0))
     expect(e.x).toBeCloseTo(0.5)
     expect(e.y).toBeCloseTo(Math.sqrt(0.75))
+  })
+})
+
+describe('his whole session, posed', () => {
+  const code = normaliseSource(roomFragment)
+  const timeline = createTypingTimeline(code, { startAt: lineStarts(code)[12] })
+  const clock = manifest.clock.matrix
+  const poser = createFigurePoser({ ...manifest.figure, phone: [clock[12], clock[13], clock[14]] })
+
+  it('never moves a wrist faster than an unhurried arm, through three minutes of typing and pauses', () => {
+    let previous = poser(timeline.at(0), 0).reach
+    for (let t = 0.01; t < 180; t += 0.01) {
+      const { reach } = poser(timeline.at(t), t)
+      for (const side of HANDS) expect(Math.hypot(...reach[side].target.map((v, i) => v - previous[side].target[i]))).toBeLessThan(0.01)
+      previous = reach
+    }
+  })
+
+  it('glides his hands over the keys instead of twitching from key to key', () => {
+    for (const side of HANDS) {
+      let anchor = null
+      let heading = null
+      let turns = 0
+      let typing = 0
+      for (let t = 2; t < 62; t += 0.01) {
+        const moment = timeline.at(t)
+        if (moment.pause.length >= POSE.shortPause) continue
+        typing += 0.01
+        const p = poser(moment, t).reach[side].target
+        anchor ??= p
+        const step = [p[0] - anchor[0], p[2] - anchor[2]]
+        if (Math.hypot(...step) < 0.004) continue
+        if (heading && step[0] * heading[0] + step[1] * heading[1] < 0) turns++
+        heading = step
+        anchor = p
+      }
+      expect(turns / typing).toBeLessThan(0.5) // back-and-forth moves of 4 mm or more, per second of typing
+    }
+  })
+
+  it('has no rhythm you can lock onto: his head never repeats itself over two minutes', () => {
+    const yaw = []
+    for (let t = 0; t < 120; t += 0.05) yaw.push(poser(timeline.at(t), t).angles.head[1])
+    const mean = yaw.reduce((a, b) => a + b) / yaw.length
+    const centred = yaw.map((v) => v - mean)
+    const power = centred.reduce((sum, v) => sum + v * v, 0)
+    for (let lag = 60; lag <= 1200; lag += 5) {
+      let sum = 0
+      for (let i = 0; i + lag < centred.length; i++) sum += centred[i] * centred[i + lag]
+      expect((sum / power) * (centred.length / (centred.length - lag))).toBeLessThan(0.6)
+    }
+  })
+
+  it('reaches the mouse with a bend left in his arm', () => {
+    const scroll = pauseSatThrough('scroll')
+    const rig = createFigureRig(manifest.figure.bones)
+    const { angles, reach } = poser(state({ since: 3, until: 3, index: scroll }), 3)
+    rig.pose(angles, reach)
+    const bones = manifest.figure.bones
+    const at = (name) => new Vector3(...bones.find((b) => b.name === name).pivot).applyMatrix4(rig.matrices[bones.findIndex((b) => b.name === name)])
+    const [shoulder, elbow, wrist] = ['shoulder_R', 'elbow_R', 'hand_R'].map(at)
+    expect(wrist.distanceTo(new Vector3(...reach.R.target))).toBeLessThan(1e-3)
+    const bend = elbow.clone().sub(shoulder).angleTo(wrist.clone().sub(elbow))
+    expect(bend).toBeGreaterThan(0.15) // not locked straight
   })
 })

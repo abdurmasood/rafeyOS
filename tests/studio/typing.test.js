@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { roomFragment } from '@/components/studio/shaders/room.glsl'
 import { normaliseSource } from '@/lib/studio/code'
-import { BACKSPACE, FINGERS, HANDS, STROKE, createTypingTimeline, fingerFor, neighbours, strokeAt, strokeSlot } from '@/lib/studio/typing'
+import {
+  BACKSPACE,
+  FINGERS,
+  GLANCE_SHAPE,
+  HANDS,
+  HAND_SHARE,
+  STROKE,
+  createTypingTimeline,
+  fingerFor,
+  handReach,
+  keyOffset,
+  neighbours,
+  overshootEase,
+  strokeAt,
+  strokeSlot,
+} from '@/lib/studio/typing'
 
 const CODE = 'void main() {\n  float x = 1.0;\n}'
 
@@ -37,11 +52,17 @@ describe('which finger types a key', () => {
 })
 
 describe('a keystroke', () => {
-  it('rests before and after, lifts before the character appears and sinks with the key', () => {
-    expect(strokeAt(-STROKE.lift - 0.01)).toBe(0)
-    expect(strokeAt(-STROKE.lift / 2)).toBeCloseTo(1)
-    expect(strokeAt(STROKE.travel / 2)).toBeCloseTo(-STROKE.sink)
-    expect(strokeAt(STROKE.travel + 0.01)).toBe(0)
+  it('rests before and after, presses down as the character appears, then lifts a touch and settles', () => {
+    expect(strokeAt(-STROKE.down - 0.01)).toBe(0)
+    expect(strokeAt(-STROKE.down / 2)).toBeCloseTo(0.5)
+    expect(strokeAt(0)).toBe(1)
+    expect(strokeAt(STROKE.up)).toBeCloseTo(-STROKE.rebound)
+    expect(strokeAt(STROKE.up + STROKE.settle + 0.01)).toBe(0)
+    let previous = strokeAt(-0.2)
+    for (let dt = -0.2; dt < 0.4; dt += 0.001) {
+      expect(Math.abs(strokeAt(dt) - previous)).toBeLessThan(0.05) // no snaps
+      previous = strokeAt(dt)
+    }
   })
 })
 
@@ -73,11 +94,11 @@ describe('typing timeline', () => {
     expect(timeline.at(newlineAt).typed).toBe(6) // the newline and its four spaces arrive together
   })
 
-  it('lifts the finger that types the next character just before it appears', () => {
+  it('presses the finger that types the next character down just before it appears', () => {
     const timeline = createTypingTimeline('j', { thinkChance: 0, typoChance: 0 })
     let appears = 0
     while (timeline.at(appears).typed < 1) appears += 0.001
-    const { strokes } = timeline.at(appears - STROKE.lift / 2)
+    const { strokes } = timeline.at(appears - 0.01)
     expect(strokes[strokeSlot('R', 'index')]).toBeGreaterThan(0.9)
     expect(strokes[strokeSlot('L', 'index')]).toBe(0)
   })
@@ -148,5 +169,141 @@ describe('pace, pauses and glances on the room shader', () => {
     expect(['keys', 'phone']).toContain(glance.kind)
     expect(glance.amount).toBeGreaterThan(0)
     expect(again.at(t).glance).toEqual(glance)
+  })
+})
+
+describe('the same keystrokes as before the motion pass', () => {
+  it('keeps the seed-7 session on the room shader exactly as it was', () => {
+    // Fingerprint of the schedule from before hands, pace and shaped glances were added
+    const timeline = createTypingTimeline(normaliseSource(roomFragment))
+    let checksum = 0
+    for (let i = 0; i < 4000; i++) {
+      const { typed, extra } = timeline.at(i * 0.377)
+      checksum = (checksum * 31 + typed * 7 + extra.length) % 1000000007
+    }
+    expect(timeline.duration).toBeCloseTo(1505.9645313731307, 9)
+    expect(checksum).toBe(63905992)
+  })
+})
+
+describe('where his hands go on the keyboard', () => {
+  it('stays home for the home keys, the space bar and keys it does not know', () => {
+    for (const key of ['a', 's', 'd', 'f', 'j', 'k', 'l', ';', ' ', '\u00e9']) expect(handReach(key)).toEqual([0, 0])
+  })
+
+  it('shifts part of the way toward a key: across for g, away for the top row, toward him for the bottom', () => {
+    expect(handReach('g')).toEqual([HAND_SHARE[0], 0])
+    expect(handReach('h')).toEqual([-HAND_SHARE[0], 0])
+    expect(handReach('e')[1]).toBeCloseTo(-HAND_SHARE[1])
+    expect(handReach('m')[1]).toBeCloseTo(HAND_SHARE[1])
+  })
+
+  it('reaches out right and up for Enter and backspace, and the same for a shifted key', () => {
+    expect(handReach('\n')[0]).toBeGreaterThan(1)
+    expect(handReach(BACKSPACE)[0]).toBeGreaterThan(1)
+    expect(handReach(BACKSPACE)[1]).toBeLessThan(-1)
+    expect(handReach('(')).toEqual(handReach('9'))
+  })
+
+  it('moves smoothly between keys and goes home when he stops', () => {
+    const timeline = createTypingTimeline(normaliseSource(roomFragment))
+    let previous = timeline.at(0).hands
+    for (let t = 0.01; t < 120; t += 0.01) {
+      const { hands } = timeline.at(t)
+      for (const hand of HANDS) {
+        // half a key width in 10 ms is under 1 m/s
+        expect(Math.hypot(hands[hand][0] - previous[hand][0], hands[hand][1] - previous[hand][1])).toBeLessThan(0.5)
+      }
+      previous = hands
+    }
+    const end = timeline.at(timeline.duration - 1)
+    expect(end.hands).toEqual({ L: [0, 0], R: [0, 0] })
+  })
+})
+
+describe('what the fingers reach for', () => {
+  it('measures each key from the home key of the finger that types it', () => {
+    expect(keyOffset('f')).toEqual([0, 0])
+    expect(keyOffset('g')).toEqual([1, 0])
+    expect(keyOffset('e')).toEqual([-0.25, -1])
+    expect(handReach('e')).toEqual([-0.25 * HAND_SHARE[0], -HAND_SHARE[1]])
+  })
+
+  it('aims the striking finger at its key: the finger covers what the hand has not', () => {
+    const timeline = createTypingTimeline('feel', { thinkChance: 0, typoChance: 0 })
+    let t = 0
+    while (timeline.at(t).typed < 2) t += 0.001 // the first e lands
+    const { aims, hands } = timeline.at(t)
+    const slot = strokeSlot('L', 'middle')
+    expect(aims[2 * slot] + hands.L[0]).toBeCloseTo(keyOffset('e')[0], 1)
+    expect(aims[2 * slot + 1] + hands.L[1]).toBeCloseTo(keyOffset('e')[1], 1)
+  })
+
+  it('relaxes every finger back once he stops', () => {
+    const timeline = createTypingTimeline('feel', { thinkChance: 0, typoChance: 0 })
+    expect([...timeline.at(timeline.duration - 1).aims].every((v) => v === 0)).toBe(true)
+  })
+})
+
+describe('how hard he is typing', () => {
+  const timeline = createTypingTimeline(normaliseSource(roomFragment))
+
+  it('stays between 0 and 1 and changes smoothly', () => {
+    let previous = timeline.at(0).pace
+    for (let t = 0.01; t < 120; t += 0.01) {
+      const { pace } = timeline.at(t)
+      expect(pace).toBeGreaterThanOrEqual(0)
+      expect(pace).toBeLessThanOrEqual(1)
+      expect(Math.abs(pace - previous)).toBeLessThan(0.05)
+      previous = pace
+    }
+  })
+
+  it('is high in a run of keys and falls away in a long pause', () => {
+    let t = 1
+    while (timeline.at(t).pause.length < 2.5) t += 0.05
+    const stopped = timeline.at(t)
+    const late = timeline.at(t + stopped.pause.until - 0.01)
+    expect(stopped.pace).toBeGreaterThan(0.4)
+    expect(late.pace).toBeLessThan(0.15)
+  })
+
+  it('names each pause by the keystroke it follows, the same all the way through', () => {
+    let t = 1
+    while (timeline.at(t).pause.length < 1) t += 0.05
+    const { pause } = timeline.at(t)
+    const later = timeline.at(t + pause.until - 0.01).pause
+    expect(later.index).toBe(pause.index)
+    expect(timeline.at(t + pause.until + 0.001).pause.index).toBe(pause.index + 1)
+  })
+})
+
+describe('the shape of a glance', () => {
+  const timeline = createTypingTimeline(normaliseSource(roomFragment))
+  const firstGlance = () => {
+    let t = 0
+    while (!timeline.at(t).glance) t += 0.01
+    return t
+  }
+
+  it('starts and stops gently and goes only a touch past its mark', () => {
+    expect(overshootEase(0)).toBe(0)
+    expect(overshootEase(1)).toBe(1)
+    let peak = 0
+    for (let x = 0; x <= 1; x += 0.001) peak = Math.max(peak, overshootEase(x))
+    expect(peak).toBeCloseTo(1 + GLANCE_SHAPE.overshoot, 3)
+    expect(overshootEase(0.01)).toBeLessThan(0.01)
+  })
+
+  it('turns out quicker than it comes back, with the shoulders behind the head', () => {
+    const start = firstGlance()
+    const samples = []
+    for (let t = start; timeline.at(t).glance; t += 0.01) samples.push(timeline.at(t).glance)
+    const peakAt = samples.findIndex((g) => g.amount >= 1)
+    const backFrom = samples.length - samples.slice().reverse().findIndex((g) => g.amount >= 1)
+    expect(peakAt).toBeLessThan(samples.length - backFrom)
+    expect(samples[peakAt].trail).toBeLessThan(samples[peakAt].amount)
+    expect(Math.max(...samples.map((g) => g.amount))).toBeLessThanOrEqual(1 + GLANCE_SHAPE.overshoot + 1e-9)
+    expect(samples.at(-1).trail).toBeLessThan(0.05)
   })
 })
