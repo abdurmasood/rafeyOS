@@ -9,9 +9,10 @@ A terminal and an Ubuntu 24.04-style + Mac desktop that share one shell and one 
 ### Terminal
 
 - Bash-like shell with pipes, `&&` `||` `;`, `>` `>>`, quotes, globs and `$VARS`
-- 61 commands, each with `--help`; `man <command>` works too
+- 62 commands, each with `--help`; `man <command>` works too
 - Tab completion, shared history and a built-in `nano`
 - Pickers for projects and blog posts, and a music player with a story timeline
+- `singularity` flies you around a black hole drawn in characters, each one a traced ray of light
 
 ### Filesystem
 
