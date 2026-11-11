@@ -202,9 +202,13 @@ describe('window commands', () => {
     expect(run('nautilus | wc -c')).toMatchObject({ lines: [pre('0')], effects: [handoff({ app: APP.FILES, path: RAFEY_HOME })] })
   })
 
-  it('os, rafeyos and startx say starting rOS and hand off with no window', () => {
-    for (const name of ['os', 'rafeyos', 'startx']) {
-      expect(run(name)).toMatchObject({ lines: [pre('starting rOS…')], effects: [handoff()] })
+  it('startx says starting rOS and hands off with no window', () => {
+    expect(run('startx')).toMatchObject({ lines: [pre('starting rOS…')], effects: [handoff()] })
+  })
+
+  it('os and rafeyos are not commands, and hand off nothing', () => {
+    for (const name of ['os', 'rafeyos']) {
+      expect(run(name)).toMatchObject({ lines: [error(`bash: ${name}: command not found`)], effects: [], code: 127 })
     }
   })
 

@@ -63,10 +63,23 @@ describe('home terminal: startx', () => {
     expect(push).toHaveBeenCalledWith('/os')
   })
 
+  it.each(['os', 'rafeyos'])('%s is not found, and neither loads nor routes to rafeyOS', (command) => {
+    vi.useFakeTimers()
+    const { container } = renderTerminal()
+
+    run(command)
+    act(() => vi.advanceTimersByTime(1000))
+
+    expect(container.querySelector('.terminal-output .error-text').textContent).toBe(`bash: ${command}: command not found`)
+    expect(container.textContent).not.toContain('starting rOS…')
+    expect(loadRafeyOS).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+  })
+
   it('does not route if the terminal unmounts first', () => {
     vi.useFakeTimers()
     const { unmount } = renderTerminal()
-    run('os')
+    run('startx')
 
     unmount()
     act(() => vi.advanceTimersByTime(1000))
@@ -87,26 +100,30 @@ describe('home terminal: startx', () => {
     expect(window.sessionStorage.getItem('rafeyos-handoff')).toBeNull()
   })
 
-  it('completes "os" to "os " with Tab', () => {
+  it('completes "star" to "startx " with Tab', () => {
     renderTerminal()
     const input = screen.getByLabelText('terminal input')
     run('help')
 
-    fireEvent.change(input, { target: { value: 'os' } })
+    fireEvent.change(input, { target: { value: 'star' } })
     fireEvent.keyDown(input, { key: 'Tab' })
 
-    expect(input.value).toBe('os ')
+    expect(input.value).toBe('startx ')
   })
 
-  it('lists open and os on a double Tab after "o", since open starts with o too', () => {
-    const { container } = renderTerminal()
+  it('never completes os or rafeyos, so "o" completes straight to open', () => {
+    renderTerminal()
     const input = screen.getByLabelText('terminal input')
     run('help')
 
+    for (const typed of ['os', 'rafey']) {
+      fireEvent.change(input, { target: { value: typed } })
+      fireEvent.keyDown(input, { key: 'Tab' })
+      expect(input.value).toBe(typed)
+    }
     fireEvent.change(input, { target: { value: 'o' } })
     fireEvent.keyDown(input, { key: 'Tab' })
-    fireEvent.keyDown(input, { key: 'Tab' })
 
-    expect(container.querySelector('.terminal-output').lastElementChild.textContent).toBe('open    os')
+    expect(input.value).toBe('open ')
   })
 })

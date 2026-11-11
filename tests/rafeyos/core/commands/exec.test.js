@@ -36,10 +36,14 @@ describe('exec basics', () => {
     expect(texts(run('WHOAMI'))).toEqual(['bash: WHOAMI: command not found'])
   })
 
-  it('keeps startx runnable but out of completion', () => {
+  it('runs and completes startx, and has no os or rafeyos command', () => {
     expect(COMMANDS.startx).toBeDefined()
-    expect(COMPLETION_COMMANDS).not.toContain('startx')
+    expect(COMPLETION_COMMANDS).toContain('startx')
     expect(COMPLETION_COMMANDS).toContain('help')
+    for (const name of ['os', 'rafeyos']) {
+      expect(Object.hasOwn(COMMANDS, name)).toBe(false)
+      expect(COMPLETION_COMMANDS).not.toContain(name)
+    }
   })
 
   it('registry commands all live in bin folders', () => {
@@ -70,23 +74,23 @@ describe('a second terminal\'s own commands', () => {
     expect(texts(run('greet'))).toEqual(['bash: greet: command not found'])
   })
 
-  it('completion commands derive from a registry: sorted, without startx', () => {
+  it('completion commands derive from a registry: every name, sorted', () => {
     const handler = () => ({})
 
-    expect(completionCommands({ zeta: handler, startx: handler, alpha: handler })).toEqual(['alpha', 'zeta'])
+    expect(completionCommands({ zeta: handler, startx: handler, alpha: handler })).toEqual(['alpha', 'startx', 'zeta'])
     expect(completionCommands(COMMANDS)).toEqual(COMPLETION_COMMANDS)
     expect(Object.isFrozen(completionCommands({ alpha: handler }))).toBe(true)
   })
 })
 
 describe('content commands', () => {
-  it('help prints the help block, without music, and a dim hint', () => {
+  it('help prints the help block, without music or startx, and a dim hint', () => {
     const out = run('help', '/home/rafey', { content: realContent })
 
     expect(out.lines[0].text).toBe(
       "Available commands:\n\n  bio          biography\n  skills       toolkit\n" +
         "  projects     body of work\n  blog         thoughts\n" +
-        '  contact      get in touch\n  singularity  a black hole\n',
+        '  contact      get in touch\n\nPrograms:\n\n  singularity  black hole simulation\n',
     )
     expect(out.lines[1]).toEqual({ type: 'dim', text: "Use ↑ for history, tab to autocomplete, 'clear' to reset." })
   })
@@ -366,7 +370,11 @@ describe('system commands', () => {
     expect(out.effects).toEqual([{ type: 'logout' }])
   })
 
-  it.each(['os', 'rafeyos', 'startx'])('%s says it is already running', (name) => {
-    expect(texts(run(name))).toEqual(['rOS: already running'])
+  it('startx says it is already running', () => {
+    expect(texts(run('startx'))).toEqual(['rOS: already running'])
+  })
+
+  it.each(['os', 'rafeyos'])('%s is not a command', (name) => {
+    expect(run(name)).toMatchObject({ lines: [{ type: 'error', text: `bash: ${name}: command not found` }], code: 127 })
   })
 })

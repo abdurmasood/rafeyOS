@@ -276,7 +276,5 @@ export const systemCommands = Object.freeze({
   clear,
   exit,
   logout,
-  os: alreadyRunning,
-  rafeyos: alreadyRunning,
   startx: alreadyRunning,
 })

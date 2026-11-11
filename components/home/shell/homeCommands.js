@@ -161,8 +161,6 @@ const OVERRIDES = {
   nautilus: launch,
   gedit: launch,
   'gnome-text-editor': launch,
-  os: startRafeyOS,
-  rafeyos: startRafeyOS,
   startx: startRafeyOS,
   exit: newSession,
   logout: newSession,

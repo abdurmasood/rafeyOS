@@ -32,8 +32,10 @@ describe('complete', () => {
     expect(tab('who')).toEqual({ value: 'whoami ' })
   })
 
-  it('never offers startx', () => {
-    expect(tab('star')).toEqual({ value: 'star' })
+  it('offers startx, and nothing for os or rafeyos, which are not commands', () => {
+    expect(tab('star')).toEqual({ value: 'startx ' })
+    expect(tab('os')).toEqual({ value: 'os' })
+    expect(tab('rafey')).toEqual({ value: 'rafey' })
   })
 
   it('lists several matches only on the second tab', () => {
