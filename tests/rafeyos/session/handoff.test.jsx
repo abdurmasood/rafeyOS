@@ -76,10 +76,10 @@ describe('hand-off from the homepage to rafeyOS', () => {
     expect(windowsOf(container, 'editor')[0].getAttribute('aria-label')).toBe('bio.txt')
   })
 
-  it('os lands on an empty desktop and clears an old hand-off', () => {
+  it('startx lands on an empty desktop and clears an old hand-off', () => {
     window.sessionStorage.setItem(HANDOFF_KEY, handoffOf({ app: 'files', path: HOME }))
 
-    handOffFromHome('os')
+    handOffFromHome('startx')
 
     expect(window.sessionStorage.getItem(HANDOFF_KEY)).toBeNull()
     const { container } = bootRafeyOS()

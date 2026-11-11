@@ -235,7 +235,7 @@ describe('useHomeShell: effects and panels', () => {
 
     run(view, 'open linkedin | wc -l')
     run(view, 'open email')
-    run(view, 'os')
+    run(view, 'startx')
 
     expect(view.handlers.newTab).toHaveBeenCalledWith(expect.stringContaining('linkedin'))
     expect(view.handlers.mailto).toHaveBeenCalledWith(expect.stringMatching(/^mailto:/))

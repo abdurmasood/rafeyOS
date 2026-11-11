@@ -57,13 +57,13 @@ export const SHIPPED_MTIME = Date.UTC(2026, 9, 1)
 export const TRASH = 'trash'
 
 // Rafey's portfolio commands, shipped as stubs so `ls /usr/local/bin` lists them
-const COMMANDS = Object.freeze(['bio', 'projects', 'blog', 'music', 'contact', 'skills', 'help', 'os'])
+const COMMANDS = Object.freeze(['bio', 'projects', 'blog', 'music', 'contact', 'skills', 'help'])
 
 /** Every other command the shell runs, stubbed in /usr/bin as Ubuntu ships them. Bash builtins like cd stay out. */
 export const SYSTEM_COMMANDS = Object.freeze([
   'ls', 'pwd', 'mkdir', 'rmdir', 'touch', 'rm', 'cp', 'mv', 'cat', 'tree', 'find', 'ln', 'stat', 'echo', 'head', 'tail', 'wc', 'grep', 'sort', 'uniq',
   'less', 'whoami', 'uname', 'date', 'uptime', 'hostname', 'clear', 'which', 'man', 'env', 'true', 'false', 'sudo', 'open', 'xdg-open', 'gio',
-  'nautilus', 'gedit', 'gnome-text-editor', 'nano', 'vim', 'vi', 'rafeyos', 'startx', 'gsettings', 'ps', 'kill', 'neofetch',
+  'nautilus', 'gedit', 'gnome-text-editor', 'nano', 'vim', 'vi', 'startx', 'gsettings', 'ps', 'kill', 'neofetch',
   'reset-home', 'singularity',
 ])
 

@@ -52,7 +52,7 @@ const NANO = {
 
 /** @type {Page} */
 const SINGULARITY = {
-  summary: 'fly around a black hole',
+  summary: 'black hole simulation',
   synopsis: ['singularity'],
   description: [
     'A real-time simulation, drawn in the terminal. Every character is one ray of light, traced along the path light',
@@ -76,13 +76,6 @@ const missingEditor = (name) => ({
   synopsis: [`${name} [FILE]`],
   description: [`${name} isn't installed here: FILE opens in nano instead.`],
 })
-
-/** @type {Page} */
-const ROS = {
-  summary: 'start rafeyOS',
-  synopsis: ['os'],
-  description: ['rafeyOS is already running, so this only says so.'],
-}
 
 /** @param {'head' | 'tail'} name @returns {Page} */
 const ends = (name) => {
@@ -138,9 +131,11 @@ const PAGES = Object.freeze({
   vim: missingEditor('vim'),
   vi: missingEditor('vi'),
   singularity: SINGULARITY,
-  os: ROS,
-  rafeyos: { ...ROS, synopsis: ['rafeyos'] },
-  startx: { ...ROS, synopsis: ['startx'] },
+  startx: {
+    summary: 'start the rafeyOS desktop',
+    synopsis: ['startx'],
+    description: ['Start the rafeyOS desktop. Inside rafeyOS, say that it is already running.'],
+  },
   ls: {
     summary: 'list directory contents',
     synopsis: ['ls [OPTION]... [FILE]...'],

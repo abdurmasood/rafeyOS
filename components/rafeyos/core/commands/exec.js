@@ -44,19 +44,11 @@ export const COMMANDS = Object.freeze(
   }),
 )
 
-// Commands tab leaves out; startx is deliberately hidden
-const UNLISTED = new Set(['startx'])
-
 /**
  * What tab completes for the first word: every command in `registry`, in the shell's name order.
  * @param {import('./run').Registry} registry
  */
-export const completionCommands = (registry) =>
-  Object.freeze(
-    Object.keys(registry)
-      .filter((name) => !UNLISTED.has(name))
-      .sort(shellCollate),
-  )
+export const completionCommands = (registry) => Object.freeze(Object.keys(registry).sort(shellCollate))
 
 export const COMPLETION_COMMANDS = completionCommands(COMMANDS)
 

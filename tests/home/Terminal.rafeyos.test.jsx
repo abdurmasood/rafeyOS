@@ -34,24 +34,25 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('home terminal: os', () => {
-  it('lists os as the last help row, and never startx', () => {
+describe('home terminal: startx', () => {
+  it('lists startx as the last help row, and never os or rafeyos', () => {
     const { container } = renderTerminal()
 
     run('help')
 
     const text = container.textContent
-    expect(text).toContain('os           operating system')
-    expect(text.indexOf('operating system')).toBeGreaterThan(text.indexOf('get in touch'))
-    expect(text).not.toContain('startx')
+    expect(text).toContain('  startx       start the desktop\n')
+    expect(text.indexOf('start the desktop')).toBeGreaterThan(text.indexOf('black hole simulation'))
+    expect(text).not.toMatch(/ {2}(os|rafeyos) +\S/)
+    expect(text).not.toContain('operating system')
   })
 
-  it.each(['os', 'startx'])('%s prefetches, forgets the session and routes after 450ms', (command) => {
+  it('startx prefetches, forgets the session and routes after 450ms', () => {
     vi.useFakeTimers()
     window.sessionStorage.setItem('rafeyos-session', 'desktop')
     const { container } = renderTerminal()
 
-    run(command)
+    run('startx')
 
     expect(container.textContent).toContain('starting rOS…')
     expect(loadRafeyOS).toHaveBeenCalledTimes(1)
@@ -62,10 +63,23 @@ describe('home terminal: os', () => {
     expect(push).toHaveBeenCalledWith('/os')
   })
 
+  it.each(['os', 'rafeyos'])('%s is not found, and neither loads nor routes to rafeyOS', (command) => {
+    vi.useFakeTimers()
+    const { container } = renderTerminal()
+
+    run(command)
+    act(() => vi.advanceTimersByTime(1000))
+
+    expect(container.querySelector('.terminal-output .error-text').textContent).toBe(`bash: ${command}: command not found`)
+    expect(container.textContent).not.toContain('starting rOS…')
+    expect(loadRafeyOS).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+  })
+
   it('does not route if the terminal unmounts first', () => {
     vi.useFakeTimers()
     const { unmount } = renderTerminal()
-    run('os')
+    run('startx')
 
     unmount()
     act(() => vi.advanceTimersByTime(1000))
@@ -86,26 +100,30 @@ describe('home terminal: os', () => {
     expect(window.sessionStorage.getItem('rafeyos-handoff')).toBeNull()
   })
 
-  it('completes "os" to "os " with Tab', () => {
+  it('completes "star" to "startx " with Tab', () => {
     renderTerminal()
     const input = screen.getByLabelText('terminal input')
     run('help')
 
-    fireEvent.change(input, { target: { value: 'os' } })
+    fireEvent.change(input, { target: { value: 'star' } })
     fireEvent.keyDown(input, { key: 'Tab' })
 
-    expect(input.value).toBe('os ')
+    expect(input.value).toBe('startx ')
   })
 
-  it('lists open and os on a double Tab after "o", since open starts with o too', () => {
-    const { container } = renderTerminal()
+  it('never completes os or rafeyos, so "o" completes straight to open', () => {
+    renderTerminal()
     const input = screen.getByLabelText('terminal input')
     run('help')
 
+    for (const typed of ['os', 'rafey']) {
+      fireEvent.change(input, { target: { value: typed } })
+      fireEvent.keyDown(input, { key: 'Tab' })
+      expect(input.value).toBe(typed)
+    }
     fireEvent.change(input, { target: { value: 'o' } })
     fireEvent.keyDown(input, { key: 'Tab' })
-    fireEvent.keyDown(input, { key: 'Tab' })
 
-    expect(container.querySelector('.terminal-output').lastElementChild.textContent).toBe('open    os')
+    expect(input.value).toBe('open ')
   })
 })

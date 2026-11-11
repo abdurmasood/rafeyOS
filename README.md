@@ -2,17 +2,17 @@
 
 A terminal and an Ubuntu 24.04-style + Mac desktop that share one shell and one filesystem. Type commands at `/`, or point and click at `/os`. Everything you make stays in your browser.
 
-**[Open rafeyOS](https://rafey.ai)** — the terminal is the front door; run `os` for the desktop
+**[Open rafeyOS](https://rafey.ai)** — the terminal is the front door; run `startx` for the desktop
 
 ## Features
 
 ### Terminal
 
 - Bash-like shell with pipes, `&&` `||` `;`, `>` `>>`, quotes, globs and `$VARS`
-- 62 commands, each with `--help`; `man <command>` works too
+- 60 commands, each with `--help`; `man <command>` works too
 - Tab completion, shared history and a built-in `nano`
 - Pickers for projects and blog posts, and a music player with a story timeline
-- `singularity` flies you around a black hole drawn in characters, each one a traced ray of light
+- `singularity` is a black hole simulation drawn in characters, each one a traced ray of light
 
 ### Filesystem
 
@@ -45,7 +45,7 @@ visitor@rafey.ai:~$ ls /home/rafey
 bio.txt  blog  contact  Music  projects  README.txt  skills.txt
 visitor@rafey.ai:~$ echo "hi rafey" > ~/Desktop/hello.txt
 → visible in rafeyOS
-visitor@rafey.ai:~$ os
+visitor@rafey.ai:~$ startx
 ```
 
 `hello.txt` is now on the desktop. Run `help` for the rest.

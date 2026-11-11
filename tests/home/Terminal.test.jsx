@@ -85,7 +85,7 @@ describe('home terminal: prompt and look', () => {
 
     const [list, hint] = [...container.querySelectorAll('.terminal-output > :not(.echo)')]
     expect(list.textContent).toMatch(/^Available commands:\n\n {2}bio/)
-    expect(list.textContent).toMatch(/operating system\n\n$/)
+    expect(list.textContent).toMatch(/start the desktop\n\n$/)
     expect(hint).toHaveProperty('className', 'grey')
     expect(hint.textContent).toBe("Use ↑ for history, tab to autocomplete, 'clear' to reset.")
   })
