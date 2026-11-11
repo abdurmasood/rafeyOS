@@ -31,7 +31,7 @@ export const isDesktopRemembered = (storage) => {
 // The window the homepage asked for ({app?, path?}), opened once the desktop is up. One read uses it up.
 export const HANDOFF_KEY = 'rafeyos-handoff'
 
-/** Keeps `open` for rafeyOS to open; with none, clears an older one so a plain `os` lands on an empty desktop. */
+/** Keeps `open` for rafeyOS to open; with none, clears an older one so a plain `startx` lands on an empty desktop. */
 export const rememberHandoff = (storage, open) => {
   try {
     if (open) storage?.setItem(HANDOFF_KEY, JSON.stringify(open))
