@@ -52,7 +52,7 @@ const NANO = {
 
 /** @type {Page} */
 const SINGULARITY = {
-  summary: 'fly around a black hole',
+  summary: 'black hole simulation',
   synopsis: ['singularity'],
   description: [
     'A real-time simulation, drawn in the terminal. Every character is one ray of light, traced along the path light',

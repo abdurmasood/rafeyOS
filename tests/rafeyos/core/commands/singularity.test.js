@@ -57,10 +57,10 @@ describe('singularity as an installed command', () => {
   it('has a man page that names the keys and what is simplified', () => {
     const page = manPage('singularity')
 
-    expect(page).toContain('singularity - fly around a black hole')
+    expect(page).toContain('singularity - black hole simulation')
     expect(page).toContain('q, Esc        quit')
     expect(page).toContain('Simplified: the hole does not spin')
-    expect(texts(run('man singularity')).join('\n')).toContain('singularity - fly around a black hole')
+    expect(texts(run('man singularity')).join('\n')).toContain('singularity - black hole simulation')
   })
 
   it('is stubbed in /usr/bin and completes from the prompt', () => {
