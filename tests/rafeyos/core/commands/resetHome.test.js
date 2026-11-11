@@ -118,7 +118,7 @@ describe('reset-home', () => {
 
     expect(SYSTEM_COMMANDS).toContain('reset-home')
     expect(texts(run('which reset-home'))).toEqual(['/usr/bin/reset-home'])
-    expect(texts(run('ls /usr/local/bin | cat'))).toEqual(['bio\nblog\ncontact\nhelp\nmusic\nos\nprojects\nskills'])
+    expect(texts(run('ls /usr/local/bin | cat'))).toEqual(['bio\nblog\ncontact\nhelp\nmusic\nprojects\nskills'])
     expect(manPage('reset-home')).toContain('reset-home - erase')
   })
 })
