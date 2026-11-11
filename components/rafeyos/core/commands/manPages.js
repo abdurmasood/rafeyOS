@@ -77,13 +77,6 @@ const missingEditor = (name) => ({
   description: [`${name} isn't installed here: FILE opens in nano instead.`],
 })
 
-/** @type {Page} */
-const ROS = {
-  summary: 'start rafeyOS',
-  synopsis: ['os'],
-  description: ['rafeyOS is already running, so this only says so.'],
-}
-
 /** @param {'head' | 'tail'} name @returns {Page} */
 const ends = (name) => {
   const which = name === 'head' ? 'first' : 'last'
@@ -138,9 +131,11 @@ const PAGES = Object.freeze({
   vim: missingEditor('vim'),
   vi: missingEditor('vi'),
   singularity: SINGULARITY,
-  os: ROS,
-  rafeyos: { ...ROS, synopsis: ['rafeyos'] },
-  startx: { ...ROS, synopsis: ['startx'] },
+  startx: {
+    summary: 'start the rafeyOS desktop',
+    synopsis: ['startx'],
+    description: ['Start the rafeyOS desktop. Inside rafeyOS, say that it is already running.'],
+  },
   ls: {
     summary: 'list directory contents',
     synopsis: ['ls [OPTION]... [FILE]...'],

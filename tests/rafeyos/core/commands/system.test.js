@@ -149,6 +149,13 @@ describe('man', () => {
     expect(shown(last(['man ls | head -2']))).toEqual(['NAME\n       ls - list directory contents'])
   })
 
+  it('startx has a page of its own, and os and rafeyos have none', () => {
+    expect(manPage('startx')).toContain('NAME\n       startx - start the rafeyOS desktop\n')
+    expect(manPage('startx')).toContain('already running')
+    expect(manPage('os')).toBeNull()
+    expect(manPage('rafeyos')).toBeNull()
+  })
+
   it('every command has a page whose OPTIONS lists only flags it takes', () => {
     const missing = Object.keys(COMMANDS).filter((name) => manPage(name) === null)
 
