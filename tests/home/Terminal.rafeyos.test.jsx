@@ -34,24 +34,25 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('home terminal: os', () => {
-  it('lists os as the last help row, and never startx', () => {
+describe('home terminal: startx', () => {
+  it('lists startx as the last help row, and never os or rafeyos', () => {
     const { container } = renderTerminal()
 
     run('help')
 
     const text = container.textContent
-    expect(text).toContain('os           operating system')
-    expect(text.indexOf('operating system')).toBeGreaterThan(text.indexOf('get in touch'))
-    expect(text).not.toContain('startx')
+    expect(text).toContain('  startx       start the desktop\n')
+    expect(text.indexOf('start the desktop')).toBeGreaterThan(text.indexOf('black hole simulation'))
+    expect(text).not.toMatch(/ {2}(os|rafeyos) +\S/)
+    expect(text).not.toContain('operating system')
   })
 
-  it.each(['os', 'startx'])('%s prefetches, forgets the session and routes after 450ms', (command) => {
+  it('startx prefetches, forgets the session and routes after 450ms', () => {
     vi.useFakeTimers()
     window.sessionStorage.setItem('rafeyos-session', 'desktop')
     const { container } = renderTerminal()
 
-    run(command)
+    run('startx')
 
     expect(container.textContent).toContain('starting rOS…')
     expect(loadRafeyOS).toHaveBeenCalledTimes(1)

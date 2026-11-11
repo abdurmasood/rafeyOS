@@ -81,12 +81,14 @@ describe('home terminal: singularity', () => {
     expect(queryInput()).toBeTruthy()
   })
 
-  it('lists it in help, before os', () => {
+  it('lists it under Programs in help, before startx', () => {
     const { container } = render(<Page />)
 
     run('help')
 
-    expect(container.textContent).toContain('  contact      get in touch\n  singularity  a black hole\n  os           operating system\n')
+    expect(container.textContent).toContain(
+      '  contact      get in touch\n\nPrograms:\n\n  singularity  black hole simulation\n  startx       start the desktop\n',
+    )
   })
 
   it('refuses a pipe and keeps the prompt', () => {

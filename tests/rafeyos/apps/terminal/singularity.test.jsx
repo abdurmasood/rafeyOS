@@ -82,12 +82,13 @@ describe('Terminal app: singularity', () => {
     expect(promptInput(win)).toBeTruthy()
   })
 
-  it('lists it in help and refuses a pipe', () => {
+  it('lists it as the only program in help and refuses a pipe', () => {
     const { container } = renderDesktop()
     const { win, input } = openTerminal(container)
 
     typeCommand(input, 'help')
-    expect(log(win).textContent).toContain('  contact      get in touch\n  singularity  a black hole\n')
+    expect(log(win).textContent).toContain('  contact      get in touch\n\nPrograms:\n\n  singularity  black hole simulation\n')
+    expect(log(win).textContent).not.toContain('startx')
     typeCommand(input, 'singularity | cat')
 
     expect(log(win).querySelector('.er').textContent).toBe('singularity: needs a terminal')
